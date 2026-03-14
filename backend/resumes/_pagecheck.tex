@@ -1,0 +1,120 @@
+\documentclass[10pt,a4paper]{altacv}
+
+\geometry{left=1cm,right=1cm,top=1.25cm,bottom=1.25cm,columnsep=1.2cm}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[default]{lato}
+\usepackage{paracol}
+% hyperref loaded by altacv.cls
+
+\definecolor{Navy}{HTML}{000080}
+\definecolor{SlateGrey}{HTML}{2E2E2E}
+\definecolor{LightGrey}{HTML}{666666}
+\colorlet{heading}{Navy}
+\colorlet{accent}{Navy}
+\colorlet{emphasis}{SlateGrey}
+\colorlet{body}{LightGrey}
+
+\renewcommand{\itemmarker}{{\small\textbullet}}
+\renewcommand{\ratingmarker}{\faCircle}
+
+\begin{document}
+
+\name{Chakit Bhandari}
+\tagline{Software Engineer}
+\personalinfo{%
+  \location{Melbourne, VIC}
+  \email{chakitbhandari22@gmail.com}
+  \phone{+61 434 057 320}
+}
+
+\begin{fullwidth}
+\makecvheader
+\end{fullwidth}
+
+\columnratio{0.65}
+\begin{paracol}{2}
+
+% LEFT COLUMN
+\cvsection{Experience}
+
+\cvevent{AI Engineer}{Heya Voice AI}{Aug 2025 - Present}{Melbourne, VIC}
+\begin{itemize}
+\item Engineered \textbf{AI-driven} voice automation systems, leveraging \textbf{LLM orchestration} to reduce manual handling by 80\%.
+\item Developed an internal \textbf{CLI tool} to streamline deployment and configuration, improving system reliability.
+\end{itemize}
+\divider
+
+\cvevent{Software Developer Intern}{Digital Asset Custody Solutions Pty Ltd.}{Jul 2025 - Oct 2025}{Melbourne, VIC}
+\begin{itemize}
+\item Designed and implemented a crypto pricing engine architecture on \textbf{AWS}, supporting \textbf{real-time} pricing for 20+ digital assets.
+\item Integrated 5+ external market data providers to deliver reliable, \textbf{low-latency} pricing data.
+\end{itemize}
+\divider
+
+\cvevent{Software Engineer}{Film Never Die}{Nov 2024 - Feb 2025}{Melbourne, VIC}
+\begin{itemize}
+\item Contributed to a \textbf{SaaS product} that generated significant annual savings for clients.
+\item Developed a \textbf{mobile application} using \textbf{Flutter} for fast, user-friendly image access.
+\end{itemize}
+\divider
+
+\cvevent{Software Developer}{Fresh Prints}{Jun 2023 -- Aug 2023}{Remote}
+\begin{itemize}
+\item Developed \textbf{Customer Portal} features, enabling direct client ordering and improving user experience.
+\item Built a \textbf{PDF image extraction API} and migrated it to \textbf{AWS Lambda}, reducing operational costs by 96\%.
+\end{itemize}
+
+\switchcolumn
+
+% RIGHT COLUMN
+\cvsection{Education}
+
+\cvevent{Master's of Information Technology}{RMIT University, Melbourne}{2024 - 2025}{}
+
+\vspace{0.1cm}
+
+\cvsection{Skills}
+
+\cvtag{\textbf{Problem Solving}}
+\cvtag{\textbf{Python}}
+\cvtag{\textbf{Bash/Shell Scripting}}
+\cvtag{\textbf{Linux}}
+\cvtag{\textbf{Docker}}
+\cvtag{\textbf{AWS}}
+\cvtag{\textbf{SDLC \& Agile}}
+\cvtag{\textbf{Communication}}
+\cvtag{LLMs}
+\cvtag{AI Agents}
+
+\vspace{0.1cm}
+
+\cvsection{Links}
+
+\cvtag{\href{https://www.linkedin.com/in/chakit-bhandari}{\textbf{LinkedIn}}}
+\cvtag{\href{https://github.com/Chakit22}{\textbf{GitHub}}}
+\cvtag{\href{https://leetcode.com/Chakit_Bhandari}{\textbf{LeetCode}}}
+
+\vspace{0.1cm}
+
+\cvsection{Achievements}
+
+\begin{itemize}
+\item Secured \textbf{1st place} in an \textbf{AI Agents} Hackathon, presenting at \textbf{Microsoft Office}.
+\item Achieved \textbf{3rd rank} out of 200 participants in a competitive university coding event.
+\end{itemize}
+
+\vspace{0.1cm}
+
+\cvsection{Projects}
+
+\cvevent{Forge -- AI Learning Assistant}{\href{https://github.com/Chakit22}{GitHub}}{}{Team Project}
+\begin{itemize}
+\item Developed an \textbf{AI-powered} learning assistant featuring smart summaries, quizzes, and speech-to-text notes.
+\item Integrated \textbf{OpenAI GPT-4o}, Weaviate vector DB, and Whisper for transcription.
+\end{itemize}
+
+\end{paracol}
+
+\end{document}

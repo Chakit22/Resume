@@ -1,0 +1,33 @@
+{
+  "name": "resume-tailor-backend",
+  "version": "1.0.0",
+  "description": "LangGraph agent that tailors LaTeX resumes to job descriptions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx tsx src/server.ts",
+    "dev": "npx tsx --watch src/server.ts"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.75",
+    "@langchain/google-genai": "^0.2.16",
+    "@langchain/langgraph": "^0.4.8",
+    "better-sqlite3": "^12.8.0",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.5",
+    "docx": "^9.6.1",
+    "dotenv": "^17.2.2",
+    "express": "^4.21.0",
+    "pdfkit": "^0.17.2",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.3.1",
+    "@types/pdfkit": "^0.17.5",
+    "tsx": "^4.19.0",
+    "typescript": "^5.1.3"
+  }
+}
