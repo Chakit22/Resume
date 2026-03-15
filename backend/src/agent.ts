@@ -10,11 +10,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import {
-  PARSE_JD_PROMPT,
-  REWRITE_RESUME_PROMPT,
-  CHAT_SYSTEM_PROMPT,
-} from './prompts.js';
+import { PARSE_JD_PROMPT, REWRITE_RESUME_PROMPT } from './prompts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RESUMES_DIR = path.resolve(__dirname, '../resumes');
@@ -170,6 +166,11 @@ function compileAndCountPages(latex: string): number {
   return 2;
 }
 
+function truncate(s: string, max = 120): string {
+  if (!s || typeof s !== 'string') return String(s);
+  return s.length <= max ? s : s.slice(0, max) + '...';
+}
+
 // ── Node 1: Parse JD ──
 
 async function parseJDNode(
@@ -178,7 +179,12 @@ async function parseJDNode(
   const lastMessage = state.messages[state.messages.length - 1];
   const jdText = lastMessage.content as string;
 
-  console.log('\n🔍 [parseJD] Parsing job description...');
+  console.log(
+    '\n🔍 [parseJD] IN: messages.length=%d, baseResume=%d chars',
+    state.messages.length,
+    state.baseResume?.length ?? 0,
+  );
+  console.log('   [parseJD] IN: jdText (last msg) =', truncate(jdText, 200));
 
   const response = await getLLM().invoke([
     new SystemMessage(PARSE_JD_PROMPT),
@@ -186,6 +192,7 @@ async function parseJDNode(
   ]);
 
   const parsed = extractText(response.content);
+  console.log('   [parseJD] OUT: parsedJD =', truncate(parsed, 300));
   console.log('✅ [parseJD] Done. Extracted structured JD.');
 
   return {
@@ -199,7 +206,11 @@ async function parseJDNode(
 async function atsMatchNode(
   state: GraphStateType,
 ): Promise<Partial<GraphStateType>> {
-  console.log('\n📊 [atsMatch] Analyzing ATS match...');
+  console.log(
+    '\n📊 [atsMatch] IN: parsedJD=%d chars, baseResume=%d chars',
+    state.parsedJD?.length ?? 0,
+    state.baseResume?.length ?? 0,
+  );
 
   let jd: {
     primaryKeywords?: string[];
@@ -273,6 +284,17 @@ async function atsMatchNode(
   };
 
   console.log(
+    '   [atsMatch] OUT: score=%d, matched=%d, missing=%d',
+    score,
+    matched.length,
+    missing.length,
+  );
+  console.log(
+    '   [atsMatch] OUT: matched=%s, missing=%s',
+    truncate(matched.join(', '), 100),
+    truncate(missing.join(', '), 100),
+  );
+  console.log(
     `✅ [atsMatch] Score: ${score}% | Matched: ${matched.length}/${total} | Missing: ${missing.length}`,
   );
 
@@ -292,7 +314,12 @@ async function atsMatchNode(
 async function rewriteResumeNode(
   state: GraphStateType,
 ): Promise<Partial<GraphStateType>> {
-  console.log('\n✍️  [rewriteResume] Rewriting resume...');
+  console.log(
+    '\n✍️  [rewriteResume] IN: baseResume=%d chars, atsAnalysis=%d chars, parsedJD=%d chars',
+    state.baseResume?.length ?? 0,
+    state.atsAnalysis?.length ?? 0,
+    state.parsedJD?.length ?? 0,
+  );
 
   const prompt = `Here is the original LaTeX resume:
 
@@ -320,6 +347,14 @@ Rewrite the resume following the instructions.`;
   ]);
 
   const tailored = sanitizeLatex(extractText(response.content));
+  console.log(
+    '   [rewriteResume] OUT: tailoredResume=%d chars',
+    tailored?.length ?? 0,
+  );
+  console.log(
+    '   [rewriteResume] OUT: first 150 chars =',
+    truncate(tailored, 150),
+  );
   console.log('✅ [rewriteResume] Done. Tailored resume generated.');
 
   return {
@@ -333,9 +368,13 @@ Rewrite the resume following the instructions.`;
 async function checkPagesNode(
   state: GraphStateType,
 ): Promise<Partial<GraphStateType>> {
-  console.log('\n📄 [checkPages] Compiling to check page count...');
+  console.log(
+    '\n📄 [checkPages] IN: tailoredResume=%d chars',
+    state.tailoredResume?.length ?? 0,
+  );
 
   const pages = compileAndCountPages(state.tailoredResume);
+  console.log('   [checkPages] OUT: pageCount=%d', pages);
   console.log(`✅ [checkPages] Page count: ${pages}`);
 
   return {
@@ -351,14 +390,23 @@ async function trimResumeNode(
 ): Promise<Partial<GraphStateType>> {
   const attempt = state.trimAttempts + 1;
   console.log(
-    `\n✂️  [trimResume] Attempt ${attempt} — currently ${state.pageCount} pages, need 1...`,
+    '\n✂️  [trimResume] IN: pageCount=%d, trimAttempts=%d, tailoredResume=%d chars',
+    state.pageCount,
+    state.trimAttempts,
+    state.tailoredResume?.length ?? 0,
+  );
+  console.log(
+    `   [trimResume] Attempt ${attempt} — currently ${state.pageCount} pages, need 1...`,
   );
 
   const isLateAttempt = attempt >= 3;
 
   // Check if JD mentions problem solving / algorithmic skills — if so, preserve Coding Profiles
   const jdText = (state.parsedJD || '').toLowerCase();
-  const keepCodingProfiles = /problem\s*solving|algorithmic|data\s*structures|coding\s*challenges|leetcode|competitive\s*programming|codechef|hackerrank/.test(jdText);
+  const keepCodingProfiles =
+    /problem\s*solving|algorithmic|data\s*structures|coding\s*challenges|leetcode|competitive\s*programming|codechef|hackerrank/.test(
+      jdText,
+    );
 
   const prompt = `This LaTeX resume compiles to ${state.pageCount} pages. It MUST fit on exactly 1 page.
 ${isLateAttempt ? `\nThis is attempt ${attempt}. Previous attempts did NOT reduce it enough. You MUST be much more aggressive this time.\n` : ''}
@@ -396,6 +444,12 @@ Output ONLY the shortened LaTeX. No explanation, no markdown fences.`;
   ]);
 
   const trimmed = sanitizeLatex(extractText(response.content));
+  console.log(
+    '   [trimResume] OUT: tailoredResume=%d chars (was %d), trimAttempts=%d',
+    trimmed?.length ?? 0,
+    state.tailoredResume?.length ?? 0,
+    attempt,
+  );
   console.log(`✅ [trimResume] Attempt ${attempt} done.`);
 
   return {
@@ -407,33 +461,48 @@ Output ONLY the shortened LaTeX. No explanation, no markdown fences.`;
 // ── Routing: after checkPages ──
 
 function routeAfterCheck(state: GraphStateType): 'trimResume' | 'done' {
-  if (state.pageCount <= 1) return 'done';
-  if (state.trimAttempts >= 5) {
+  const route =
+    state.pageCount <= 1
+      ? 'done'
+      : state.trimAttempts >= 5
+        ? 'done'
+        : 'trimResume';
+  console.log(
+    '   [route] checkPages → %s (pageCount=%d, trimAttempts=%d)',
+    route,
+    state.pageCount,
+    state.trimAttempts,
+  );
+  if (state.trimAttempts >= 5 && state.pageCount > 1) {
     console.log(
       '⚠️  [route] Max trim attempts reached, proceeding with current version.',
     );
-    return 'done';
   }
-  return 'trimResume';
+  return route;
 }
 
 // "done" node produces the final user-facing message with a summary of actual changes
 async function doneNode(
   state: GraphStateType,
 ): Promise<Partial<GraphStateType>> {
-  console.log('\n🎉 [done] Finalizing resume...');
+  console.log(
+    '\n🎉 [done] IN: pageCount=%d, trimAttempts=%d, tailoredResume=%d chars, messages.length=%d',
+    state.pageCount,
+    state.trimAttempts,
+    state.tailoredResume?.length ?? 0,
+    state.messages?.length ?? 0,
+  );
   const pageNote =
     state.pageCount <= 1
       ? 'The resume fits on 1 page.'
       : `Note: after ${state.trimAttempts} trim attempts, the resume is ${state.pageCount} pages.`;
 
+  const finalMsg =
+    `I've tailored your resume for this role. ${pageNote}` +
+    `You can ask me questions about the changes, request specific edits, or say "compile" to generate the PDF.`;
+  console.log('   [done] OUT: adding final AIMessage, messages +1');
   return {
-    messages: [
-      new AIMessage(
-        `I've tailored your resume for this role. ${pageNote}` +
-          `You can ask me questions about the changes, request specific edits, or say "compile" to generate the PDF.`,
-      ),
-    ],
+    messages: [new AIMessage(finalMsg)],
   };
 }
 
