@@ -87,7 +87,7 @@ Open http://localhost:3000
 1. Push the repo to GitHub/GitLab/Bitbucket.
 2. In [Render Dashboard](https://dashboard.render.com/), click **New > Web Service**.
 3. Connect your repo and configure:
-   - **Root Directory**: `resume-tailor` (so `render.yaml` is found)
+   - **Root Directory**: `resume-tailor/backend`
    - **Runtime**: **Docker**
    - **Instance Type**: Free
 4. Add environment variables:
