@@ -53,7 +53,7 @@ let _llm: ChatGoogleGenerativeAI | null = null;
 function getLLM(): ChatGoogleGenerativeAI {
   if (!_llm) {
     _llm = new ChatGoogleGenerativeAI({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-flash-lite',
       temperature: 0.3,
     });
   }

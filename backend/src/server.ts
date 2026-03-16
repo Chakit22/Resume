@@ -1,30 +1,39 @@
-import express from "express";
-import cors from "cors";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import { execSync } from "child_process";
-import { HumanMessage, AIMessage } from "@langchain/core/messages";
-import { buildGraph, sanitizeLatex } from "./agent.js";
-import type { GraphStateType } from "./agent.js";
-import dotenv from "dotenv";
-import * as cheerio from "cheerio";
+import express from 'express';
+import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
+import { HumanMessage, AIMessage } from '@langchain/core/messages';
+import { buildGraph, sanitizeLatex } from './agent.js';
+import type { GraphStateType } from './agent.js';
+import dotenv from 'dotenv';
+import * as cheerio from 'cheerio';
 import {
-  getDb, insertJob, updateJobStatus, getAllJobs, getJob,
-  upsertSession, getSession, replaceMessages, getMessages, updateCoverLetter,
-  type JobRow, type SessionRow,
-} from "./db.js";
+  getDb,
+  insertJob,
+  updateJobStatus,
+  getAllJobs,
+  getJob,
+  upsertSession,
+  getSession,
+  replaceMessages,
+  getMessages,
+  updateCoverLetter,
+  type JobRow,
+  type SessionRow,
+} from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: '5mb' }));
 
 const PORT = process.env.PORT || 3000;
-const RESUME_PATH = path.resolve(__dirname, "../resumes/base-resume.tex");
-const OUTPUT_DIR = path.resolve(__dirname, "../resumes/output");
+const RESUME_PATH = path.resolve(__dirname, '../resumes/base-resume.tex');
+const OUTPUT_DIR = path.resolve(__dirname, '../resumes/output');
 
 const sessions: Map<string, GraphStateType> = new Map();
 
@@ -34,7 +43,7 @@ const sessions: Map<string, GraphStateType> = new Map();
 
 interface JobEntry {
   id: string;
-  status: "queued" | "processing" | "done" | "error";
+  status: 'queued' | 'processing' | 'done' | 'error';
   label: string;
   createdAt: number;
   jd: string;
@@ -44,21 +53,23 @@ interface JobEntry {
 const jobQueue: JobEntry[] = [];
 let processing = false;
 
-function serializeMessages(messages: any[]): Array<{ type: string; content: string }> {
+function serializeMessages(
+  messages: any[],
+): Array<{ type: string; content: string }> {
   return messages.map((m: any) => ({
-    type: typeof m._getType === "function" ? m._getType() : "unknown",
-    content: typeof m.content === "string" ? m.content : String(m.content),
+    type: typeof m._getType === 'function' ? m._getType() : 'unknown',
+    content: typeof m.content === 'string' ? m.content : String(m.content),
   }));
 }
 
 function processQueue() {
   if (processing) return;
-  const next = jobQueue.find((j) => j.status === "queued");
+  const next = jobQueue.find((j) => j.status === 'queued');
   if (!next) return;
 
   processing = true;
-  next.status = "processing";
-  updateJobStatus(next.id, "processing");
+  next.status = 'processing';
+  updateJobStatus(next.id, 'processing');
   console.log(`🚀 [queue] Processing job ${next.id} — "${next.label}"`);
 
   (async () => {
@@ -71,25 +82,29 @@ function processQueue() {
       });
 
       sessions.set(next.id, result);
-      next.status = "done";
+      next.status = 'done';
 
       let ats: any;
       try {
-        ats = typeof result.atsAnalysis === "string"
-          ? JSON.parse(result.atsAnalysis)
-          : result.atsAnalysis;
-      } catch { ats = {}; }
-      if (ats.jobTitle) next.label = ats.jobTitle + (ats.company ? ` at ${ats.company}` : "");
+        ats =
+          typeof result.atsAnalysis === 'string'
+            ? JSON.parse(result.atsAnalysis)
+            : result.atsAnalysis;
+      } catch {
+        ats = {};
+      }
+      if (ats.jobTitle)
+        next.label = ats.jobTitle + (ats.company ? ` at ${ats.company}` : '');
 
-      updateJobStatus(next.id, "done", next.label);
+      updateJobStatus(next.id, 'done', next.label);
       persistSession(next.id, result);
 
       console.log(`✅ [queue] Job ${next.id} done — "${next.label}"`);
     } catch (err: any) {
       console.error(`❌ [queue] Job ${next.id} failed:`, err.message);
-      next.status = "error";
+      next.status = 'error';
       next.error = err.message;
-      updateJobStatus(next.id, "error", undefined, err.message);
+      updateJobStatus(next.id, 'error', undefined, err.message);
     } finally {
       processing = false;
       processQueue();
@@ -97,7 +112,11 @@ function processQueue() {
   })();
 }
 
-function persistSession(id: string, state: GraphStateType, coverLetter?: string) {
+function persistSession(
+  id: string,
+  state: GraphStateType,
+  coverLetter?: string,
+) {
   const existing = getSession(id);
   upsertSession({
     id,
@@ -105,7 +124,7 @@ function persistSession(id: string, state: GraphStateType, coverLetter?: string)
     parsedJD: state.parsedJD,
     atsAnalysis: state.atsAnalysis,
     tailoredResume: state.tailoredResume,
-    coverLetter: coverLetter ?? existing?.cover_letter ?? "",
+    coverLetter: coverLetter ?? existing?.cover_letter ?? '',
     pageCount: state.pageCount,
     trimAttempts: state.trimAttempts,
   });
@@ -113,14 +132,16 @@ function persistSession(id: string, state: GraphStateType, coverLetter?: string)
 }
 
 function hydrateFromDb() {
-  console.log("📂 [db] Hydrating from SQLite...");
+  console.log('📂 [db] Hydrating from SQLite...');
   getDb();
 
   const jobs = getAllJobs();
   for (const row of jobs) {
-    const status = (row.status === "processing" ? "queued" : row.status) as JobEntry["status"];
-    if (status === "processing") {
-      updateJobStatus(row.id, "queued");
+    const status = (
+      row.status === 'processing' ? 'queued' : row.status
+    ) as JobEntry['status'];
+    if (status === 'processing') {
+      updateJobStatus(row.id, 'queued');
     }
     jobQueue.push({
       id: row.id,
@@ -131,12 +152,12 @@ function hydrateFromDb() {
       error: row.error ?? undefined,
     });
 
-    if (row.status === "done") {
+    if (row.status === 'done') {
       const sRow = getSession(row.id);
       if (sRow) {
         const msgRows = getMessages(row.id);
         const messages = msgRows.map((m) => {
-          if (m.type === "human") return new HumanMessage(m.content);
+          if (m.type === 'human') return new HumanMessage(m.content);
           return new AIMessage(m.content);
         });
         const sess: any = {
@@ -155,9 +176,11 @@ function hydrateFromDb() {
     }
   }
 
-  const queued = jobQueue.filter((j) => j.status === "queued").length;
-  const done = jobQueue.filter((j) => j.status === "done").length;
-  console.log(`📂 [db] Loaded ${jobs.length} jobs (${done} done, ${queued} queued)`);
+  const queued = jobQueue.filter((j) => j.status === 'queued').length;
+  const done = jobQueue.filter((j) => j.status === 'done').length;
+  console.log(
+    `📂 [db] Loaded ${jobs.length} jobs (${done} done, ${queued} queued)`,
+  );
 
   if (queued > 0) processQueue();
 }
@@ -166,10 +189,10 @@ function loadBaseResume(): string {
   if (!fs.existsSync(RESUME_PATH)) {
     throw new Error(
       `Base resume not found at ${RESUME_PATH}. ` +
-      `Place your LaTeX resume at resume-tailor/backend/resumes/base-resume.tex`
+        `Place your LaTeX resume at resume-tailor/backend/resumes/base-resume.tex`,
     );
   }
-  return fs.readFileSync(RESUME_PATH, "utf-8");
+  return fs.readFileSync(RESUME_PATH, 'utf-8');
 }
 
 // ---------------------------------------------------------------------------
@@ -180,11 +203,12 @@ async function scrapeJobDescription(url: string): Promise<string> {
   console.log(`🌐 [scrape] Fetching: ${url}`);
   const res = await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
+      'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
     },
-    redirect: "follow",
+    redirect: 'follow',
   });
 
   if (!res.ok) {
@@ -195,25 +219,25 @@ async function scrapeJobDescription(url: string): Promise<string> {
   const $ = cheerio.load(html);
 
   // Remove noise
-  $("script, style, nav, header, footer, aside, noscript, iframe").remove();
+  $('script, style, nav, header, footer, aside, noscript, iframe').remove();
 
   // Try specific selectors first (ordered by specificity)
   const selectors = [
     // Indeed
-    "#jobDescriptionText",
-    ".jobsearch-JobComponent-description",
-    ".jobsearch-jobDescriptionText",
+    '#jobDescriptionText',
+    '.jobsearch-JobComponent-description',
+    '.jobsearch-jobDescriptionText',
     // LinkedIn (rarely works without JS, but try)
-    ".jobs-description__content",
-    ".jobs-box__html-content",
+    '.jobs-description__content',
+    '.jobs-box__html-content',
     // Glassdoor
-    ".jobDescriptionContent",
+    '.jobDescriptionContent',
     '[class*="JobDescription"]',
     // Greenhouse
-    "#content .body",
-    ".job-post",
+    '#content .body',
+    '.job-post',
     // Lever
-    ".posting-page .content",
+    '.posting-page .content',
     '[class*="posting-description"]',
     // Workday
     '[data-automation-id="jobPostingDescription"]',
@@ -222,47 +246,51 @@ async function scrapeJobDescription(url: string): Promise<string> {
     // Dice
     '[data-testid="jobDescription"]',
     // Generic patterns
-    "#job-description",
-    "#jobDescription",
-    "#job_description",
-    ".job-description",
-    ".job_description",
-    ".jobDescription",
+    '#job-description',
+    '#jobDescription',
+    '#job_description',
+    '.job-description',
+    '.job_description',
+    '.jobDescription',
     '[class*="job-description"]',
     '[class*="job_description"]',
     '[id*="job-description"]',
     '[id*="jobDescription"]',
     '[data-testid*="description"]',
     '[role="article"]',
-    ".posting-page",
-    ".job-details",
-    ".job-posting",
-    ".job-content",
-    ".description__text",
+    '.posting-page',
+    '.job-details',
+    '.job-posting',
+    '.job-content',
+    '.description__text',
   ];
 
   for (const sel of selectors) {
     const el = $(sel);
     const text = el.text()?.trim();
     if (text && text.length > 150) {
-      console.log(`✅ [scrape] Found JD via selector: ${sel} (${text.length} chars)`);
+      console.log(
+        `✅ [scrape] Found JD via selector: ${sel} (${text.length} chars)`,
+      );
       return text;
     }
   }
 
   // Fallback: main/article containers
-  for (const tag of ["main", "article", "[role='main']"]) {
+  for (const tag of ['main', 'article', "[role='main']"]) {
     const text = $(tag).text()?.trim();
     if (text && text.length > 300 && text.length < 20000) {
-      console.log(`✅ [scrape] Using <${tag}> container (${text.length} chars)`);
+      console.log(
+        `✅ [scrape] Using <${tag}> container (${text.length} chars)`,
+      );
       return text;
     }
   }
 
   // Last resort: largest text block
-  let best = "";
-  $("div, section").each((_, el) => {
-    const text = $(el).text()?.trim() || "";
+  let best = '';
+  $('div, section').each((_, el) => {
+    const text = $(el).text()?.trim() || '';
     if (text.length > best.length && text.length > 300 && text.length < 20000) {
       best = text;
     }
@@ -274,7 +302,7 @@ async function scrapeJobDescription(url: string): Promise<string> {
   }
 
   throw new Error(
-    "Could not extract a job description from this URL. The page may require JavaScript to render. Try pasting the JD text directly."
+    'Could not extract a job description from this URL. The page may require JavaScript to render. Try pasting the JD text directly.',
   );
 }
 
@@ -283,35 +311,46 @@ async function scrapeJobDescription(url: string): Promise<string> {
 // Body: { jd?: string, url?: string }
 // ---------------------------------------------------------------------------
 
-app.post("/tailor", async (req, res) => {
+app.post('/tailor', async (req, res) => {
   try {
     let { jd, url } = req.body;
 
-    if (url && typeof url === "string") {
+    if (url && typeof url === 'string') {
       jd = await scrapeJobDescription(url.trim());
     }
 
-    if (!jd || typeof jd !== "string") {
-      res.status(400).json({ error: "Provide either a 'url' to scrape or 'jd' text." });
+    if (!jd || typeof jd !== 'string') {
+      res
+        .status(400)
+        .json({ error: "Provide either a 'url' to scrape or 'jd' text." });
       return;
     }
 
     const id = crypto.randomUUID();
-    const label = (url && typeof url === "string")
-      ? url.replace(/^https?:\/\//, "").slice(0, 60)
-      : jd.slice(0, 50) + "...";
+    const label =
+      url && typeof url === 'string'
+        ? url.replace(/^https?:\/\//, '').slice(0, 60)
+        : jd.slice(0, 50) + '...';
 
-    const job: JobEntry = { id, status: "queued", label, createdAt: Date.now(), jd };
+    const job: JobEntry = {
+      id,
+      status: 'queued',
+      label,
+      createdAt: Date.now(),
+      jd,
+    };
     jobQueue.push(job);
     insertJob(job);
 
-    console.log(`📋 [tailor] Job ${id} queued — ${jobQueue.filter(j => j.status === "queued").length} in queue`);
+    console.log(
+      `📋 [tailor] Job ${id} queued — ${jobQueue.filter((j) => j.status === 'queued').length} in queue`,
+    );
 
     processQueue();
 
     res.json({ sessionId: id, status: job.status, label: job.label });
   } catch (err: any) {
-    console.error("❌ Error in /tailor:", err);
+    console.error('❌ Error in /tailor:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -320,7 +359,7 @@ app.post("/tailor", async (req, res) => {
 // GET /sessions — list all jobs for the sidebar
 // ---------------------------------------------------------------------------
 
-app.get("/sessions", (_req, res) => {
+app.get('/sessions', (_req, res) => {
   const list = jobQueue.map((j) => ({
     id: j.id,
     status: j.status,
@@ -335,48 +374,49 @@ app.get("/sessions", (_req, res) => {
 // GET /session/:id — full session data for a completed job
 // ---------------------------------------------------------------------------
 
-app.get("/session/:id", (req, res) => {
+app.get('/session/:id', (req, res) => {
   const job = jobQueue.find((j) => j.id === req.params.id);
   if (!job) {
-    res.status(404).json({ error: "Job not found" });
+    res.status(404).json({ error: 'Job not found' });
     return;
   }
 
-  if (job.status !== "done") {
+  if (job.status !== 'done') {
     res.json({ status: job.status, label: job.label, error: job.error });
     return;
   }
 
   const session = sessions.get(job.id);
   if (!session) {
-    res.status(500).json({ error: "Session data missing" });
+    res.status(500).json({ error: 'Session data missing' });
     return;
   }
 
   let atsAnalysis: any;
   try {
-    atsAnalysis = typeof session.atsAnalysis === "string"
-      ? JSON.parse(session.atsAnalysis)
-      : session.atsAnalysis;
+    atsAnalysis =
+      typeof session.atsAnalysis === 'string'
+        ? JSON.parse(session.atsAnalysis)
+        : session.atsAnalysis;
   } catch {
-    atsAnalysis = { score: 0, matched: [], missing: [], jobTitle: "Unknown" };
+    atsAnalysis = { score: 0, matched: [], missing: [], jobTitle: 'Unknown' };
   }
 
   const messages = session.messages
     .filter((m: any) => {
-      const content = typeof m.content === "string" ? m.content : "";
-      return !content.startsWith("[System]");
+      const content = typeof m.content === 'string' ? m.content : '';
+      return !content.startsWith('[System]');
     })
     .map((m: any) => ({
-      role: m._getType() === "human" ? "user" : "assistant",
+      role: m._getType() === 'human' ? 'user' : 'assistant',
       content: m.content,
     }));
 
   const sRow = getSession(job.id);
-  const coverLetter = sRow?.cover_letter ?? (session as any).coverLetter ?? "";
+  const coverLetter = sRow?.cover_letter ?? (session as any).coverLetter ?? '';
 
   res.json({
-    status: "done",
+    status: 'done',
     label: job.label,
     atsAnalysis,
     tailoredResume: session.tailoredResume,
@@ -391,7 +431,7 @@ app.get("/session/:id", (req, res) => {
 // POST /chat
 // ---------------------------------------------------------------------------
 
-app.post("/chat", async (req, res) => {
+app.post('/chat', async (req, res) => {
   try {
     const { sessionId, message } = req.body;
     if (!sessionId || !message) {
@@ -401,67 +441,86 @@ app.post("/chat", async (req, res) => {
 
     const session = sessions.get(sessionId);
     if (!session) {
-      res.status(404).json({ error: "Session not found. Start with /tailor first." });
+      res
+        .status(404)
+        .json({ error: 'Session not found. Start with /tailor first.' });
       return;
     }
 
-    const { ChatGoogleGenerativeAI } = await import("@langchain/google-genai");
-    const { SystemMessage, AIMessage } = await import("@langchain/core/messages");
-    const { CHAT_SYSTEM_PROMPT } = await import("./prompts.js");
+    const { ChatGoogleGenerativeAI } = await import('@langchain/google-genai');
+    const { SystemMessage, AIMessage } =
+      await import('@langchain/core/messages');
+    const { CHAT_SYSTEM_PROMPT } = await import('./prompts.js');
 
     const llm = new ChatGoogleGenerativeAI({
-      model: "gemini-2.5-flash",
+      model: 'gemini-2.5-flash-lite',
       temperature: 0.3,
     });
 
     const updatedMessages = [...session.messages, new HumanMessage(message)];
 
-    const systemContent = CHAT_SYSTEM_PROMPT +
+    const systemContent =
+      CHAT_SYSTEM_PROMPT +
       `\n\n--- Original Resume ---\n${session.baseResume}\n\n` +
       `--- Tailored Resume ---\n${session.tailoredResume}\n\n` +
       `--- ATS Analysis ---\n${session.atsAnalysis}\n\n` +
       `--- Parsed JD ---\n${session.parsedJD}`;
 
-    const conversation = updatedMessages.filter(
-      (m) => {
-        const c = typeof m.content === "string" ? m.content : "";
-        return !c.startsWith("[System]");
-      }
-    );
+    const conversation = updatedMessages.filter((m) => {
+      const c = typeof m.content === 'string' ? m.content : '';
+      return !c.startsWith('[System]');
+    });
     if (conversation.length > 0 && !(conversation[0] instanceof HumanMessage)) {
-      conversation.unshift(new HumanMessage("Please summarize what you changed in my resume."));
+      conversation.unshift(
+        new HumanMessage('Please summarize what you changed in my resume.'),
+      );
     }
 
-    const contextMessages = [
-      new SystemMessage(systemContent),
-      ...conversation,
-    ];
+    const contextMessages = [new SystemMessage(systemContent), ...conversation];
 
     const response = await llm.invoke(contextMessages);
-    const content = typeof response.content === "string"
-      ? response.content
-      : Array.isArray(response.content)
-        ? response.content.map((c: any) => c.text || String(c)).join("")
-        : String(response.content);
+    const content =
+      typeof response.content === 'string'
+        ? response.content
+        : Array.isArray(response.content)
+          ? response.content.map((c: any) => c.text || String(c)).join('')
+          : String(response.content);
 
     const aiMsg = new AIMessage(content);
     const allMessages = [...updatedMessages, aiMsg];
 
     const latexMatch = content.match(/```latex\n([\s\S]*?)```/);
-    const updatedResume = latexMatch ? latexMatch[1].trim() : session.tailoredResume;
+    let updatedResume = session.tailoredResume;
+    let resumeUpdated = false;
+    if (latexMatch) {
+      const extracted = latexMatch[1].trim();
+      // Reject if LLM output looks like a generic template (would overwrite user's real resume)
+      const looksLikeTemplate =
+        /\b(Your Name|Company Name|University Name|you@example\.com|Location, Country)\b/i.test(
+          extracted,
+        );
+      if (!looksLikeTemplate && extracted.length > 100) {
+        updatedResume = extracted;
+        resumeUpdated = true;
+      }
+    }
 
-    const updatedSession = { ...session, messages: allMessages, tailoredResume: updatedResume };
+    const updatedSession = {
+      ...session,
+      messages: allMessages,
+      tailoredResume: updatedResume,
+    };
     sessions.set(sessionId, updatedSession);
     persistSession(sessionId, updatedSession);
 
     res.json({
-      role: "assistant",
+      role: 'assistant',
       content,
       tailoredResume: updatedResume,
-      resumeUpdated: !!latexMatch,
+      resumeUpdated,
     });
   } catch (err: any) {
-    console.error("Error in /chat:", err);
+    console.error('Error in /chat:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -470,26 +529,27 @@ app.post("/chat", async (req, res) => {
 // POST /cover-letter — generate cover letter for a session
 // ---------------------------------------------------------------------------
 
-app.post("/cover-letter", async (req, res) => {
+app.post('/cover-letter', async (req, res) => {
   try {
     const { sessionId } = req.body;
     if (!sessionId) {
-      res.status(400).json({ error: "Missing sessionId" });
+      res.status(400).json({ error: 'Missing sessionId' });
       return;
     }
 
     const session = sessions.get(sessionId);
     if (!session) {
-      res.status(404).json({ error: "Session not found. Run /tailor first." });
+      res.status(404).json({ error: 'Session not found. Run /tailor first.' });
       return;
     }
 
-    const { ChatGoogleGenerativeAI } = await import("@langchain/google-genai");
-    const { SystemMessage, HumanMessage } = await import("@langchain/core/messages");
-    const { COVER_LETTER_PROMPT } = await import("./prompts.js");
+    const { ChatGoogleGenerativeAI } = await import('@langchain/google-genai');
+    const { SystemMessage, HumanMessage } =
+      await import('@langchain/core/messages');
+    const { COVER_LETTER_PROMPT } = await import('./prompts.js');
 
     const llm = new ChatGoogleGenerativeAI({
-      model: "gemini-2.5-flash",
+      model: 'gemini-2.5-flash-lite',
       temperature: 0.5,
     });
 
@@ -509,11 +569,12 @@ Write the cover letter.`;
       new HumanMessage(prompt),
     ]);
 
-    const content = typeof response.content === "string"
-      ? response.content
-      : Array.isArray(response.content)
-        ? response.content.map((c: any) => c.text || String(c)).join("")
-        : String(response.content);
+    const content =
+      typeof response.content === 'string'
+        ? response.content
+        : Array.isArray(response.content)
+          ? response.content.map((c: any) => c.text || String(c)).join('')
+          : String(response.content);
 
     const coverLetter = content.trim();
     (session as any).coverLetter = coverLetter;
@@ -521,7 +582,7 @@ Write the cover letter.`;
 
     res.json({ coverLetter });
   } catch (err: any) {
-    console.error("Error in /cover-letter:", err);
+    console.error('Error in /cover-letter:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -530,18 +591,18 @@ Write the cover letter.`;
 // POST /cover-letter/save — save edited cover letter
 // ---------------------------------------------------------------------------
 
-app.post("/cover-letter/save", (req, res) => {
+app.post('/cover-letter/save', (req, res) => {
   try {
     const { sessionId, coverLetter } = req.body;
-    if (!sessionId || typeof coverLetter !== "string") {
-      res.status(400).json({ error: "Missing sessionId or coverLetter" });
+    if (!sessionId || typeof coverLetter !== 'string') {
+      res.status(400).json({ error: 'Missing sessionId or coverLetter' });
       return;
     }
 
     const session = sessions.get(sessionId);
     const sRow = getSession(sessionId);
     if (!session && !sRow) {
-      res.status(404).json({ error: "Session not found" });
+      res.status(404).json({ error: 'Session not found' });
       return;
     }
 
@@ -550,7 +611,7 @@ app.post("/cover-letter/save", (req, res) => {
 
     res.json({ ok: true });
   } catch (err: any) {
-    console.error("Error in /cover-letter/save:", err);
+    console.error('Error in /cover-letter/save:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -559,71 +620,84 @@ app.post("/cover-letter/save", (req, res) => {
 // POST /cover-letter/download/pdf — return cover letter as PDF
 // ---------------------------------------------------------------------------
 
-function getCoverLetterAndFilename(sessionId: string): { coverLetter: string; filename: string } | null {
+function getCoverLetterAndFilename(
+  sessionId: string,
+): { coverLetter: string; filename: string } | null {
   const session = sessions.get(sessionId);
   const sRow = getSession(sessionId);
   const job = jobQueue.find((j) => j.id === sessionId) || getJob(sessionId);
 
-  const coverLetter = sRow?.cover_letter ?? (session as any)?.coverLetter ?? "";
+  const coverLetter = sRow?.cover_letter ?? (session as any)?.coverLetter ?? '';
   if (!coverLetter) return null;
 
-  let name = "";
+  let name = '';
   try {
     const ats = sRow?.ats_analysis
-      ? (typeof sRow.ats_analysis === "string" ? JSON.parse(sRow.ats_analysis) : sRow.ats_analysis)
+      ? typeof sRow.ats_analysis === 'string'
+        ? JSON.parse(sRow.ats_analysis)
+        : sRow.ats_analysis
       : (session as any)?.atsAnalysis;
-    name = (ats?.company || ats?.jobTitle || job?.label || "cover-letter")
-      .replace(/[^a-zA-Z0-9\s\-_]/g, "")
-      .replace(/\s+/g, "-")
+    name = (ats?.company || ats?.jobTitle || job?.label || 'cover-letter')
+      .replace(/[^a-zA-Z0-9\s\-_]/g, '')
+      .replace(/\s+/g, '-')
       .trim()
       .slice(0, 60);
   } catch {
-    name = (job?.label || "cover-letter").replace(/[^a-zA-Z0-9\s\-_]/g, "").replace(/\s+/g, "-").trim().slice(0, 60);
+    name = (job?.label || 'cover-letter')
+      .replace(/[^a-zA-Z0-9\s\-_]/g, '')
+      .replace(/\s+/g, '-')
+      .trim()
+      .slice(0, 60);
   }
-  const filename = name ? `${name}-cover-letter` : "cover-letter";
+  const filename = name ? `${name}-cover-letter` : 'cover-letter';
   return { coverLetter, filename };
 }
 
-app.post("/cover-letter/download/pdf", async (req, res) => {
+app.post('/cover-letter/download/pdf', async (req, res) => {
   try {
     const { sessionId } = req.body;
     if (!sessionId) {
-      res.status(400).json({ error: "Missing sessionId" });
+      res.status(400).json({ error: 'Missing sessionId' });
       return;
     }
 
     const data = getCoverLetterAndFilename(sessionId);
     if (!data) {
-      res.status(404).json({ error: "Cover letter not found. Generate it first." });
+      res
+        .status(404)
+        .json({ error: 'Cover letter not found. Generate it first.' });
       return;
     }
 
-    const PDFDocument = (await import("pdfkit")).default;
+    const PDFDocument = (await import('pdfkit')).default;
     const doc = new PDFDocument({ margin: 72 });
     const chunks: Buffer[] = [];
-    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
 
     const done = new Promise<void>((resolve, reject) => {
-      doc.on("end", () => resolve());
-      doc.on("error", reject);
+      doc.on('end', () => resolve());
+      doc.on('error', reject);
     });
 
     doc.fontSize(12);
     const lines = data.coverLetter.split(/\n/);
     for (const line of lines) {
-      doc.text(line || " ", { lineGap: 4 });
+      doc.text(line || ' ', { lineGap: 4 });
     }
     doc.end();
     await done;
 
     const buffer = Buffer.concat(chunks);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${data.filename}.pdf"`);
-    res.setHeader("X-Suggested-Filename", `${data.filename}.pdf`);
-    res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename");
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${data.filename}.pdf"`,
+    );
+    res.setHeader('X-Suggested-Filename', `${data.filename}.pdf`);
+    res.setHeader('Access-Control-Expose-Headers', 'X-Suggested-Filename');
     res.send(buffer);
   } catch (err: any) {
-    console.error("Error in /cover-letter/download/pdf:", err);
+    console.error('Error in /cover-letter/download/pdf:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -632,27 +706,30 @@ app.post("/cover-letter/download/pdf", async (req, res) => {
 // POST /cover-letter/download/docx — return cover letter as DOCX
 // ---------------------------------------------------------------------------
 
-app.post("/cover-letter/download/docx", async (req, res) => {
+app.post('/cover-letter/download/docx', async (req, res) => {
   try {
     const { sessionId } = req.body;
     if (!sessionId) {
-      res.status(400).json({ error: "Missing sessionId" });
+      res.status(400).json({ error: 'Missing sessionId' });
       return;
     }
 
     const data = getCoverLetterAndFilename(sessionId);
     if (!data) {
-      res.status(404).json({ error: "Cover letter not found. Generate it first." });
+      res
+        .status(404)
+        .json({ error: 'Cover letter not found. Generate it first.' });
       return;
     }
 
-    const { Document, Packer, Paragraph, TextRun } = await import("docx");
+    const { Document, Packer, Paragraph, TextRun } = await import('docx');
 
-    const paragraphs = data.coverLetter.split(/\n/).map((line) =>
-      new Paragraph({
-        children: [new TextRun(line || " ")],
-        spacing: { after: 120 },
-      })
+    const paragraphs = data.coverLetter.split(/\n/).map(
+      (line) =>
+        new Paragraph({
+          children: [new TextRun(line || ' ')],
+          spacing: { after: 120 },
+        }),
     );
 
     const doc = new Document({
@@ -660,13 +737,19 @@ app.post("/cover-letter/download/docx", async (req, res) => {
     });
 
     const buffer = await Packer.toBuffer(doc);
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    res.setHeader("Content-Disposition", `attachment; filename="${data.filename}.docx"`);
-    res.setHeader("X-Suggested-Filename", `${data.filename}.docx`);
-    res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename");
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${data.filename}.docx"`,
+    );
+    res.setHeader('X-Suggested-Filename', `${data.filename}.docx`);
+    res.setHeader('Access-Control-Expose-Headers', 'X-Suggested-Filename');
     res.send(buffer);
   } catch (err: any) {
-    console.error("Error in /cover-letter/download/docx:", err);
+    console.error('Error in /cover-letter/download/docx:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -675,20 +758,26 @@ app.post("/cover-letter/download/docx", async (req, res) => {
 // POST /compile-base — compile base-resume.tex and return PDF
 // ---------------------------------------------------------------------------
 
-app.post("/compile-base", async (req, res) => {
+app.post('/compile-base', async (req, res) => {
   try {
     const baseResume = loadBaseResume();
     if (!fs.existsSync(OUTPUT_DIR)) {
       fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     }
-    const RESUMES_DIR = path.resolve(__dirname, "../resumes");
-    const fileId = "base-" + crypto.randomUUID();
+    const RESUMES_DIR = path.resolve(__dirname, '../resumes');
+    const fileId = 'base-' + crypto.randomUUID();
     const texPath = path.join(RESUMES_DIR, `${fileId}.tex`);
     const pdfPath = path.join(OUTPUT_DIR, `${fileId}.pdf`);
 
     let clean = sanitizeLatex(baseResume);
-    clean = clean.replace(/\\usepackage\[.*?\]\{hyperref\}/g, "% hyperref loaded by altacv.cls");
-    clean = clean.replace(/\\usepackage\{hyperref\}/g, "% hyperref loaded by altacv.cls");
+    clean = clean.replace(
+      /\\usepackage\[.*?\]\{hyperref\}/g,
+      '% hyperref loaded by altacv.cls',
+    );
+    clean = clean.replace(
+      /\\usepackage\{hyperref\}/g,
+      '% hyperref loaded by altacv.cls',
+    );
     fs.writeFileSync(texPath, clean);
 
     try {
@@ -697,23 +786,27 @@ app.post("/compile-base", async (req, res) => {
         cwd: RESUMES_DIR,
       });
     } catch (tecErr: any) {
-      try { fs.unlinkSync(texPath); } catch {}
+      try {
+        fs.unlinkSync(texPath);
+      } catch {}
       res.status(500).json({
-        error: "LaTeX compilation failed.",
+        error: 'LaTeX compilation failed.',
         details: tecErr.stderr?.toString().slice(-500) || tecErr.message,
       });
       return;
     }
-    try { fs.unlinkSync(texPath); } catch {}
+    try {
+      fs.unlinkSync(texPath);
+    } catch {}
 
     if (!fs.existsSync(pdfPath)) {
-      res.status(500).json({ error: "PDF was not generated" });
+      res.status(500).json({ error: 'PDF was not generated' });
       return;
     }
 
-    res.download(pdfPath, "base-resume.pdf");
+    res.download(pdfPath, 'base-resume.pdf');
   } catch (err: any) {
-    console.error("Error in /compile-base:", err);
+    console.error('Error in /compile-base:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -722,18 +815,18 @@ app.post("/compile-base", async (req, res) => {
 // POST /compile
 // ---------------------------------------------------------------------------
 
-app.post("/compile", async (req, res) => {
+app.post('/compile', async (req, res) => {
   try {
     const { sessionId, tailoredResume: bodyLatex } = req.body;
     let latexToCompile: string | null = null;
     const session = sessions.get(sessionId);
     if (session) {
       latexToCompile = session.tailoredResume;
-    } else if (bodyLatex && typeof bodyLatex === "string") {
+    } else if (bodyLatex && typeof bodyLatex === 'string') {
       latexToCompile = bodyLatex;
     }
     if (!latexToCompile) {
-      res.status(404).json({ error: "Session not found. Run /tailor first." });
+      res.status(404).json({ error: 'Session not found. Run /tailor first.' });
       return;
     }
 
@@ -741,14 +834,20 @@ app.post("/compile", async (req, res) => {
       fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     }
 
-    const RESUMES_DIR = path.resolve(__dirname, "../resumes");
+    const RESUMES_DIR = path.resolve(__dirname, '../resumes');
     const fileId = sessionId || crypto.randomUUID();
     const texPath = path.join(RESUMES_DIR, `${fileId}.tex`);
     const pdfPath = path.join(OUTPUT_DIR, `${fileId}.pdf`);
 
     let clean = sanitizeLatex(latexToCompile);
-    clean = clean.replace(/\\usepackage\[.*?\]\{hyperref\}/g, "% hyperref loaded by altacv.cls");
-    clean = clean.replace(/\\usepackage\{hyperref\}/g, "% hyperref loaded by altacv.cls");
+    clean = clean.replace(
+      /\\usepackage\[.*?\]\{hyperref\}/g,
+      '% hyperref loaded by altacv.cls',
+    );
+    clean = clean.replace(
+      /\\usepackage\{hyperref\}/g,
+      '% hyperref loaded by altacv.cls',
+    );
     fs.writeFileSync(texPath, clean);
 
     try {
@@ -757,40 +856,53 @@ app.post("/compile", async (req, res) => {
         cwd: RESUMES_DIR,
       });
     } catch (tecErr: any) {
-      try { fs.unlinkSync(texPath); } catch {}
+      try {
+        fs.unlinkSync(texPath);
+      } catch {}
       res.status(500).json({
-        error: "LaTeX compilation failed.",
+        error: 'LaTeX compilation failed.',
         details: tecErr.stderr?.toString().slice(-500) || tecErr.message,
       });
       return;
     }
-    try { fs.unlinkSync(texPath); } catch {}
+    try {
+      fs.unlinkSync(texPath);
+    } catch {}
 
     if (!fs.existsSync(pdfPath)) {
-      res.status(500).json({ error: "PDF was not generated" });
+      res.status(500).json({ error: 'PDF was not generated' });
       return;
     }
 
-    let downloadName = "tailored-resume.pdf";
+    let downloadName = 'tailored-resume.pdf';
     if (sessionId) {
       const job = jobQueue.find((j) => j.id === sessionId);
-      let name = "";
+      let name = '';
       try {
-        const ats = typeof session?.atsAnalysis === "string" ? JSON.parse(session.atsAnalysis) : session?.atsAnalysis;
-        name = ats?.company || ats?.jobTitle || "";
+        const ats =
+          typeof session?.atsAnalysis === 'string'
+            ? JSON.parse(session.atsAnalysis)
+            : session?.atsAnalysis;
+        name = ats?.company || ats?.jobTitle || '';
       } catch {}
       if (!name && job?.label) {
-        name = job.label.includes(" at ") ? job.label.split(" at ")[1] : job.label;
+        name = job.label.includes(' at ')
+          ? job.label.split(' at ')[1]
+          : job.label;
       }
-      const safe = String(name || "").replace(/[^a-zA-Z0-9\s\-_]/g, "").replace(/\s+/g, "-").trim().slice(0, 60);
-      if (safe) downloadName = safe + "-resume.pdf";
+      const safe = String(name || '')
+        .replace(/[^a-zA-Z0-9\s\-_]/g, '')
+        .replace(/\s+/g, '-')
+        .trim()
+        .slice(0, 60);
+      if (safe) downloadName = safe + '-resume.pdf';
     }
 
-    res.setHeader("X-Suggested-Filename", downloadName);
-    res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename");
+    res.setHeader('X-Suggested-Filename', downloadName);
+    res.setHeader('Access-Control-Expose-Headers', 'X-Suggested-Filename');
     res.download(pdfPath, downloadName);
   } catch (err: any) {
-    console.error("Error in /compile:", err);
+    console.error('Error in /compile:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -799,10 +911,10 @@ app.post("/compile", async (req, res) => {
 // GET /resume/:sessionId
 // ---------------------------------------------------------------------------
 
-app.get("/resume/:sessionId", (req, res) => {
+app.get('/resume/:sessionId', (req, res) => {
   const session = sessions.get(req.params.sessionId);
   if (!session) {
-    res.status(404).json({ error: "Session not found" });
+    res.status(404).json({ error: 'Session not found' });
     return;
   }
   res.json({ tailoredResume: session.tailoredResume });
@@ -812,7 +924,7 @@ app.get("/resume/:sessionId", (req, res) => {
 // GET / — Web UI
 // ---------------------------------------------------------------------------
 
-app.get("/", (_req, res) => {
+app.get('/', (_req, res) => {
   res.send(WEB_UI_HTML);
 });
 

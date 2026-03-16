@@ -45,8 +45,9 @@
 \RequirePackage{xcolor}
 %% v1.3.2 Hopefully this helps make the PDF
 %% file more 'friendly' with copy-paste etc
-% \RequirePackage[a-1b]{pdfx} % disabled for tectonic compatibility
-\RequirePackage[colorlinks]{hyperref}
+%% Workaround for tectonic/XeTeX: pdfx expects \pdfcreationdate (pdflatex) but XeTeX provides \creationdate
+\let\pdfcreationdate=\creationdate
+\RequirePackage[a-1b]{pdfx}
 \RequirePackage{accsupp}
 %% v1.7.3 Avoid 'Token not allowed' when \\ used with accsupp
 \pdfstringdefDisableCommands{

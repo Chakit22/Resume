@@ -85,6 +85,11 @@ SKILLS SECTION — STRICT RULES (MANDATORY):
 - "Communication" is NEVER a skill for tech roles — omit it completely.
 - Only \\cvtag entries that are technologies or Problem Solving/LLMs. No soft skills, no methodologies.
 
+CRITICAL — USE THE ACTUAL RESUME:
+- Output the user's REAL resume with their actual name, companies, dates, and experience from the original.
+- NEVER output a generic template with placeholders like "Your Name", "Company Name", "University Name", "you@example.com", or "Location, Country".
+- Every piece of personal/career data must come from the original resume — only the wording of bullet points and skills should change.
+
 Your job:
 - Rewrite bullet points to naturally incorporate MISSING keywords where truthful
 - Reorder experiences to put the most relevant ones first
