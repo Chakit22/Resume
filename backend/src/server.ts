@@ -37,7 +37,8 @@ app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'resume-tailor-secret-change-in-production';
+const SESSION_SECRET =
+  process.env.SESSION_SECRET || 'resume-tailor-secret-change-in-production';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 
 // Hash of admin password for comparison (hashed at startup)
@@ -60,7 +61,11 @@ app.use(
   }),
 );
 
-function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+function requireAuth(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) {
   if (!adminPasswordHash) return next();
   if ((req.session as any)?.authenticated) return next();
   if (req.path === '/login' || req.path.startsWith('/login')) return next();
@@ -103,7 +108,7 @@ const LOGIN_HTML = `<!DOCTYPE html>
   <form method="POST" action="/login">
     <div id="error" class="error"></div>
     <label for="password">Password</label>
-    <input type="password" id="password" name="password" placeholder="Enter password" required autofocus>
+    <input type="password" id="password" name="password" placeholder="Enter password" required autofocus autocomplete="on">
     <button type="submit">Log in</button>
   </form>
 </div>
@@ -125,18 +130,21 @@ app.get('/login', (_req, res) => {
 
 app.post('/login', async (req, res) => {
   if (!adminPasswordHash) return res.redirect('/');
-  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const password =
+    typeof req.body.password === 'string' ? req.body.password : '';
   const ok = await bcrypt.compare(password, adminPasswordHash);
   if (ok) {
     (req.session as any).authenticated = true;
     return res.redirect('/');
   }
-  res.status(401).send(
-    LOGIN_HTML.replace(
-      '<div id="error" class="error"></div>',
-      '<div id="error" class="error">Invalid password.</div>',
-    ),
-  );
+  res
+    .status(401)
+    .send(
+      LOGIN_HTML.replace(
+        '<div id="error" class="error"></div>',
+        '<div id="error" class="error">Invalid password.</div>',
+      ),
+    );
 });
 
 app.post('/logout', (req, res) => {
