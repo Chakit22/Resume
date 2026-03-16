@@ -66,6 +66,9 @@ Create `.env`:
 ```env
 GOOGLE_API_KEY=your_google_api_key
 PORT=3000
+# Optional: require login (password is hashed with bcrypt)
+ADMIN_PASSWORD=your_secret_password
+SESSION_SECRET=random_secret_for_cookies
 ```
 
 ### 3. Base resume

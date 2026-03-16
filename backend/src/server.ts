@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import session from 'express-session';
+import bcrypt from 'bcrypt';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -28,10 +30,119 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
-app.use(cors());
+app.set('trust proxy', 1);
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'resume-tailor-secret-change-in-production';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+
+// Hash of admin password for comparison (hashed at startup)
+let adminPasswordHash: string | null = null;
+if (ADMIN_PASSWORD) {
+  adminPasswordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+}
+
+app.use(
+  session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      secure: isProduction,
+      sameSite: 'lax',
+    },
+  }),
+);
+
+function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!adminPasswordHash) return next();
+  if ((req.session as any)?.authenticated) return next();
+  if (req.path === '/login' || req.path.startsWith('/login')) return next();
+  if (req.method === 'POST' && req.path === '/login') return next();
+  if (req.headers.accept?.includes('application/json')) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  res.redirect('/login');
+}
+
+app.use(requireAuth);
+
+// ---------------------------------------------------------------------------
+// Login / Logout
+// ---------------------------------------------------------------------------
+
+const LOGIN_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Resume Tailor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #09090b; color: #e4e4e7; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 40px; width: 100%; max-width: 360px; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 24px; background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  label { display: block; font-size: 13px; font-weight: 600; color: #a1a1aa; margin-bottom: 6px; }
+  input { width: 100%; padding: 12px 14px; font-size: 14px; background: #27272a; border: 1px solid #3f3f46; border-radius: 8px; color: #e4e4e7; outline: none; margin-bottom: 16px; }
+  input:focus { border-color: #6366f1; }
+  button { width: 100%; padding: 12px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+  button:hover { opacity: 0.95; }
+  .error { color: #f87171; font-size: 13px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Resume Tailor</h1>
+  <form method="POST" action="/login">
+    <div id="error" class="error"></div>
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" placeholder="Enter password" required autofocus>
+    <button type="submit">Log in</button>
+  </form>
+</div>
+</body>
+</html>`;
+
+app.get('/login', (_req, res) => {
+  if (!adminPasswordHash) {
+    return res.send(
+      LOGIN_HTML.replace(
+        '<form method="POST" action="/login">',
+        '<p style="color:#a1a1aa;margin-bottom:16px;">Login is disabled. Set <code>ADMIN_PASSWORD</code> in .env to enable.</p><p style="margin-top:12px;"><a href="/" style="color:#6366f1;">Go to app</a></p><form method="POST" action="/login" style="display:none">',
+      ),
+    );
+  }
+  if ((_req.session as any)?.authenticated) return res.redirect('/');
+  res.send(LOGIN_HTML);
+});
+
+app.post('/login', async (req, res) => {
+  if (!adminPasswordHash) return res.redirect('/');
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const ok = await bcrypt.compare(password, adminPasswordHash);
+  if (ok) {
+    (req.session as any).authenticated = true;
+    return res.redirect('/');
+  }
+  res.status(401).send(
+    LOGIN_HTML.replace(
+      '<div id="error" class="error"></div>',
+      '<div id="error" class="error">Invalid password.</div>',
+    ),
+  );
+});
+
+app.post('/logout', (req, res) => {
+  req.session.destroy(() => {});
+  res.redirect('/login');
+});
 const RESUME_PATH = path.resolve(__dirname, '../resumes/base-resume.tex');
 const OUTPUT_DIR = path.resolve(__dirname, '../resumes/output');
 
@@ -925,7 +1036,10 @@ app.get('/resume/:sessionId', (req, res) => {
 // ---------------------------------------------------------------------------
 
 app.get('/', (_req, res) => {
-  res.send(WEB_UI_HTML);
+  const logoutBtn = adminPasswordHash
+    ? '<form method="POST" action="/logout"><button type="submit" class="logout-btn">Log out</button></form>'
+    : '';
+  res.send(WEB_UI_HTML.replace('{{LOGOUT_BTN}}', logoutBtn));
 });
 
 const WEB_UI_HTML = `<!DOCTYPE html>
@@ -955,6 +1069,9 @@ const WEB_UI_HTML = `<!DOCTYPE html>
   .sidebar-header h2 { font-size: 16px; font-weight: 800; background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
   .new-job-btn { width: 100%; padding: 10px; font-size: 13px; font-weight: 700; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
   .new-job-btn:hover { box-shadow: 0 2px 12px rgba(99,102,241,0.4); }
+  .sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); margin-top: auto; }
+  .logout-btn { width: 100%; padding: 10px; font-size: 13px; font-weight: 600; background: transparent; color: var(--text-dim); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+  .logout-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
   .thread-list { flex: 1; overflow-y: auto; padding: 8px 0; }
   .thread-item { padding: 12px 16px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.12s; display: flex; align-items: center; gap: 10px; }
   .thread-item:hover { background: rgba(255,255,255,0.03); }
@@ -1086,6 +1203,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
     <button class="new-job-btn" onclick="showNewJob()">+ New Job</button>
   </div>
   <div class="thread-list" id="thread-list"></div>
+  <div class="sidebar-footer">{{LOGOUT_BTN}}</div>
 </div>
 
 <!-- ── Main ── -->
