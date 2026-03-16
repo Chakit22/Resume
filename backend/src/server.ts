@@ -1072,9 +1072,17 @@ const WEB_UI_HTML = `<!DOCTYPE html>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
 
   /* ── Sidebar ── */
-  .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); height: 100vh; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; left: 0; top: 0; }
-  .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
+  .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); height: 100vh; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; left: 0; top: 0; z-index: 1000; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+  .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .sidebar-header-inner { flex: 1; min-width: 0; }
   .sidebar-header h2 { font-size: 16px; font-weight: 800; background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .sidebar-close { display: none; width: 36px; height: 36px; flex-shrink: 0; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; align-items: center; justify-content: center; font-size: 20px; line-height: 1; }
+  .sidebar-close:hover { background: var(--border); }
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; opacity: 0; transition: opacity 0.25s ease; pointer-events: none; }
+  .sidebar-overlay.visible { pointer-events: auto; opacity: 1; }
+  .main-header { display: none; align-items: center; gap: 12px; padding: 12px 16px; background: var(--sidebar-bg); border-bottom: 1px solid var(--border); }
+  .menu-toggle { width: 40px; height: 40px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .menu-toggle:hover { background: var(--border); }
   .new-job-btn { width: 100%; padding: 10px; font-size: 13px; font-weight: 700; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
   .new-job-btn:hover { box-shadow: 0 2px 12px rgba(99,102,241,0.4); }
   .sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); margin-top: auto; }
@@ -1200,15 +1208,39 @@ const WEB_UI_HTML = `<!DOCTYPE html>
   .empty-state { text-align: center; padding: 120px 20px; }
   .empty-state h2 { font-size: 22px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
   .empty-state p { color: var(--text-dim); font-size: 14px; }
+
+  /* ── Mobile responsive (< 768px) ── */
+  @media (max-width: 767px) {
+    .sidebar { transform: translateX(-100%); box-shadow: none; }
+    .sidebar.open { transform: translateX(0); box-shadow: 8px 0 24px rgba(0,0,0,0.4); }
+    .sidebar-close { display: flex; }
+    .sidebar-overlay { display: block; }
+    .main-header { display: flex; }
+    .main { margin-left: 0; }
+    .main-inner { padding: 16px; }
+    .preview-comparison { margin-left: 0; width: 100%; padding: 0 16px; }
+    .preview-panels { grid-template-columns: 1fr; }
+    .preview-panel iframe, .preview-jd { height: 400px; }
+    .actions button { min-width: 100%; }
+    .ats-score { font-size: 36px; }
+    .empty-state { padding: 60px 16px; }
+    .empty-state h2 { font-size: 18px; }
+  }
 </style>
 </head>
 <body>
 
+<!-- ── Sidebar overlay (mobile) ── -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()" aria-hidden="true"></div>
+
 <!-- ── Sidebar ── -->
-<div class="sidebar">
+<div class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <h2>Resume Tailor</h2>
-    <button class="new-job-btn" onclick="showNewJob()">+ New Job</button>
+    <div class="sidebar-header-inner">
+      <h2>Resume Tailor</h2>
+      <button class="new-job-btn" onclick="showNewJob()">+ New Job</button>
+    </div>
+    <button class="sidebar-close" id="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">×</button>
   </div>
   <div class="thread-list" id="thread-list"></div>
   <div class="sidebar-footer">{{LOGOUT_BTN}}</div>
@@ -1216,6 +1248,10 @@ const WEB_UI_HTML = `<!DOCTYPE html>
 
 <!-- ── Main ── -->
 <div class="main">
+  <div class="main-header">
+    <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+    <span style="font-size:14px;font-weight:600;color:var(--text)">Resume Tailor</span>
+  </div>
   <div class="main-inner">
 
     <!-- EMPTY STATE (shown when no thread selected) -->
@@ -1317,6 +1353,26 @@ let pollTimers = {};
 
 function $(id) { return document.getElementById(id); }
 
+function toggleSidebar() {
+  const sidebar = $("sidebar");
+  const overlay = $("sidebar-overlay");
+  if (sidebar.classList.contains("open")) {
+    closeSidebar();
+  } else {
+    sidebar.classList.add("open");
+    overlay.classList.add("visible");
+    overlay.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeSidebar() {
+  $("sidebar").classList.remove("open");
+  $("sidebar-overlay").classList.remove("visible");
+  $("sidebar-overlay").setAttribute("aria-hidden", "true");
+}
+
+function isMobile() { return window.innerWidth < 768; }
+
 function esc(s) {
   const d = document.createElement("div");
   d.textContent = s;
@@ -1369,6 +1425,7 @@ function showNewJob() {
   $("input-phase").style.display = "block";
   $("url-input").value = "";
   $("jd-input").value = "";
+  if (isMobile()) closeSidebar();
 }
 
 function setInputMode(mode) {
@@ -1473,6 +1530,7 @@ function stopPolling(id) {
 function selectThread(id) {
   activeId = id;
   renderSidebar();
+  if (isMobile()) closeSidebar();
   const t = store[id];
   if (!t) return;
 
