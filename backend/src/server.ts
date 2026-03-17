@@ -903,6 +903,7 @@ app.post('/compile-base', async (req, res) => {
       execSync(`tectonic "${texPath}" --outdir "${OUTPUT_DIR}"`, {
         timeout: 30000,
         cwd: RESUMES_DIR,
+        stdio: 'pipe',
       });
     } catch (tecErr: any) {
       try {
@@ -973,6 +974,7 @@ app.post('/compile', async (req, res) => {
       execSync(`tectonic "${texPath}" --outdir "${OUTPUT_DIR}"`, {
         timeout: 30000,
         cwd: RESUMES_DIR,
+        stdio: 'pipe',
       });
     } catch (tecErr: any) {
       try {

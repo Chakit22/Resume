@@ -15,6 +15,9 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
+# Pre-warm Tectonic cache so runtime compilations don't need network access
+RUN cd resumes && tectonic base-resume.tex --outdir output && rm -f output/base-resume.pdf
+
 EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
