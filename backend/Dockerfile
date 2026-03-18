@@ -18,7 +18,7 @@ COPY . .
 RUN npm run build
 
 # Pre-warm Tectonic cache (may fail under QEMU emulation, non-fatal)
-RUN cd resumes && tectonic base-resume.tex --outdir output || true && rm -f output/base-resume.pdf
+RUN cd resumes && mkdir -p output && tectonic base-resume.tex --outdir output || true && rm -f output/base-resume.pdf
 
 EXPOSE 3000
 ENV NODE_ENV=production
