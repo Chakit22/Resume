@@ -128,7 +128,7 @@ function compileAndCountPages(latex: string): number {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   }
 
-  // Write tex file in resumes/ dir (same dir as altacv.cls) so tectonic finds it
+  // Write tex file in resumes/ dir (same dir as altacv.cls) so pdflatex finds it
   const texPath = path.join(RESUMES_DIR, '_pagecheck.tex');
   const logPath = path.join(OUTPUT_DIR, '_pagecheck.log');
 
