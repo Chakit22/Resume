@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM node:22-trixie-slim
 
 # Install tectonic (LaTeX compiler) and its runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
