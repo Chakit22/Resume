@@ -1,140 +1,196 @@
-\documentclass[10pt,a4paper]{altacv}
+%-------------------------
+% Resume in Latex
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%------------------------
 
-\geometry{left=1cm,right=1cm,top=1.25cm,bottom=1.25cm,columnsep=1.2cm}
+\documentclass[letterpaper,11pt]{article}
 
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage[default]{lato}
-\usepackage{paracol}
-% hyperref loaded by altacv.cls
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\setlength{\multicolsep}{-3.0pt}
+\setlength{\columnsep}{-1pt}
 
-\definecolor{Navy}{HTML}{000080}
-\definecolor{SlateGrey}{HTML}{2E2E2E}
-\definecolor{LightGrey}{HTML}{666666}
-\colorlet{heading}{Navy}
-\colorlet{accent}{Navy}
-\colorlet{emphasis}{SlateGrey}
-\colorlet{body}{LightGrey}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
 
-\renewcommand{\itemmarker}{{\small\textbullet}}
-\renewcommand{\ratingmarker}{\faCircle}
+\addtolength{\oddsidemargin}{-0.6in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1.19in}
+\addtolength{\topmargin}{-.7in}
+\addtolength{\textheight}{1.4in}
 
-\begin{document}
+\urlstyle{same}
 
-\name{Chakit Bhandari}
-\tagline{AI Full Stack Developer}
-\personalinfo{%
-  \location{Melbourne, VIC}
-  \email{chakitbhandari22@gmail.com}
-  \phone{+61 434 057 320}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large\bfseries
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
 }
 
-\begin{fullwidth}
-\makecvheader
-\end{fullwidth}
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & \textbf{\small #2} \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
 
-\columnratio{0.65}
-\begin{paracol}{2}
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{1.001\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & \textbf{\small #2}\\
+    \end{tabular*}\vspace{-7pt}
+}
 
-% LEFT COLUMN
-\cvsection{Experience}
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
 
-\cvevent{AI Engineer}{Heya Voice AI}{Aug 2025 - Present}{Melbourne, VIC}
-\begin{itemize}
-\item Built AI-driven voice automation systems using LLM orchestration and workflow automation to enable 24/7 intelligent customer interactions and reduce manual call handling by upto 80\%.
-\item Built an internal CLI tool to streamline deployment and configuration of voice agents, improving reliability.
-\item Developed and maintained complex n8n workflows, enabling end-to-end automation.
-\end{itemize}
-\divider
+\renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
 
-\cvevent{Software Developer Intern}{Digital Asset Custody Solutions Pty Ltd.}{Jul 2025 - Oct 2025}{Melbourne, VIC}
-\begin{itemize}
-\item Designed and built the end-to-end architecture for a crypto pricing engine on AWS, supporting real-time pricing for 20+ digital assets.
-\item Integrated 5+ external market data providers to deliver reliable, low-latency pricing data.
-\item Developed serverless pipelines using API Gateway, AWS Lambda, and RDS, reducing infrastructure overhead by 45\% while maintaining secure and scalable data flows.
-\end{itemize}
-\divider
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
 
-\cvevent{Software Engineer}{Film Never Die}{Nov 2024 - Feb 2025}{Melbourne, VIC}
-\begin{itemize}
-\item Worked on a groundbreaking SaaS product helping clients save up to \$30,000 annually.
-\item Developed a Mobile app using Flutter for fast, user-friendly image access, replacing Dropbox.
-\item Hosted images ranging from 5MB to 50MB on CloudFront CDN for faster access and efficient delivery.
-\end{itemize}
-\divider
+%-------------------------------------------
+\begin{document}
 
-\cvevent{Software Developer}{Fresh Prints}{Jun 2023 -- Aug 2023}{Remote}
-\begin{itemize}
-\item Developed Customer Portal features enabling direct client ordering.
-\item Built a PDF image extraction API and migrated it to a serverless AWS Lambda architecture, reducing costs by 96\%.
-\item Containerized services using Docker to improve scalability and reduce OS dependencies.
-\end{itemize}
+%----------HEADING----------
+\begin{center}
+    {\Huge \scshape Chakit Bhandari} \\ \vspace{1pt}
+    \small AI Full Stack Developer \\ \vspace{4pt}
+    \small \raisebox{-0.1\height}\faPhone\ +61 434 057 320 ~
+    \href{mailto:chakitbhandari22@gmail.com}{\raisebox{-0.2\height}\faEnvelope\ \underline{chakitbhandari22@gmail.com}} ~
+    \href{https://www.linkedin.com/in/chakit-bhandari}{\raisebox{-0.2\height}\faLinkedin\ \underline{linkedin.com/in/chakit-bhandari}} ~
+    \href{https://github.com/Chakit22}{\raisebox{-0.2\height}\faGithub\ \underline{github.com/Chakit22}}
+    \vspace{-8pt}
+\end{center}
 
-\switchcolumn
+%-----------SUMMARY-----------
+\section{Summary}
+  \small{Full Stack Developer with experience building LLM-powered voice automation, serverless AWS architectures, and multi-agent AI systems. Proficient in TypeScript, Python, React, and Node.js. LeetCode Knight with \textbf{1000+} problems solved.}
 
-% RIGHT COLUMN
-\cvsection{Education}
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
 
-\cvevent{Master's of Information Technology}{RMIT University, Melbourne}{2024 - 2025}{}
+    \resumeSubheading
+      {AI Engineer}{Aug 2025 -- Present}
+      {Heya Voice AI}{Melbourne, VIC}
+      \resumeItemListStart
+        \resumeItem{Built AI voice automation using LLM orchestration, reducing manual call handling by \textbf{80\%}.}
+        \resumeItem{Developed an internal CLI tool for deploying and configuring voice agents.}
+        \resumeItem{Maintained complex \textbf{n8n} workflows enabling end-to-end automation.}
+      \resumeItemListEnd
 
-\vspace{0.3cm}
+    \resumeSubheading
+      {Software Developer}{Jul 2025 -- Oct 2025}
+      {Digital Asset Custody Solutions Pty Ltd.}{Melbourne, VIC}
+      \resumeItemListStart
+        \resumeItem{Designed a crypto pricing engine on \textbf{AWS} supporting real-time pricing for \textbf{20+} digital assets.}
+        \resumeItem{Integrated \textbf{5+} market data providers for reliable, low-latency pricing data.}
+        \resumeItem{Built serverless pipelines with API Gateway, \textbf{Lambda}, and RDS, cutting infra costs by \textbf{45\%}.}
+      \resumeItemListEnd
 
-\cvsection{Skills}
+    \resumeSubheading
+      {Software Engineer}{Nov 2024 -- Feb 2025}
+      {Film Never Die}{Melbourne, VIC}
+      \resumeItemListStart
+        \resumeItem{Shipped a SaaS image management platform saving clients up to \textbf{\$30,000} annually.}
+        \resumeItem{Built a mobile app with \textbf{Flutter} for fast image access, replacing Dropbox.}
+        \resumeItem{Served images (\textbf{5--50MB}) via \textbf{CloudFront} CDN for efficient delivery.}
+      \resumeItemListEnd
 
-\cvtag{Problem Solving}
-\cvtag{TypeScript}
-\cvtag{Node.js}
-\cvtag{React}
-\cvtag{AWS}
-\cvtag{LLMs}
-\cvtag{AI Agents}
+    \resumeSubheading
+      {Software Developer}{Jun 2023 -- Aug 2023}
+      {Fresh Prints}{Remote}
+      \resumeItemListStart
+        \resumeItem{Developed Customer Portal features enabling direct client ordering.}
+        \resumeItem{Built a PDF extraction API on serverless \textbf{AWS Lambda}, reducing costs by \textbf{96\%}.}
+        \resumeItem{Containerized services with \textbf{Docker} to improve scalability.}
+      \resumeItemListEnd
 
-\vspace{0.3cm}
+  \resumeSubHeadingListEnd
+\vspace{-16pt}
 
-\cvsection{Links}
+%-----------PROJECTS-----------
+\section{Projects}
+    \vspace{-5pt}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+          {\textbf{Medico-Legal RAG System} $|$ \emph{LangGraph, LangChain, FastAPI, Python}}{2025}
+          \resumeItemListStart
+            \resumeItem{Built a RAG pipeline for medico-legal reports using \textbf{LangGraph} and \textbf{FastAPI}.}
+            \resumeItem{Implemented a query router selecting between three retrieval strategies.}
+            \resumeItem{Reduced irrelevant data retrieval by \textbf{75\%} via targeted section extraction.}
+          \resumeItemListEnd
+          \vspace{-13pt}
+      \resumeProjectHeading
+          {\textbf{Atlas -- AI Travel Planner} $|$ \emph{LangGraph, Gemini, TypeScript, SerpApi}}{2025}
+          \resumeItemListStart
+            \resumeItem{Built a multi-agent travel assistant with \textbf{LangGraph} and \textbf{Gemini 2.5 Flash}.}
+            \resumeItem{Integrated \textbf{SerpApi}, \textbf{OpenWeatherMap}, and \textbf{AviationStack} for live data.}
+            \resumeItem{Shipped a streaming \textbf{TypeScript} CLI with session persistence and guardrails.}
+          \resumeItemListEnd
+    \resumeSubHeadingListEnd
+\vspace{-15pt}
 
-\cvtag{\href{https://www.linkedin.com/in/chakit-bhandari}{\textbf{LinkedIn}}}
-\cvtag{\href{https://github.com/Chakit22}{\textbf{GitHub}}}
-\cvtag{\href{https://leetcode.com/Chakit_Bhandari}{\textbf{LeetCode}}}
+%-----------TECHNICAL SKILLS-----------
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: TypeScript, Python, JavaScript} \\
+     \textbf{Frameworks}{: React, Next.js, Node.js, Express, FastAPI, Flutter, LangChain, LangGraph, RAG} \\
+     \textbf{Cloud \& DevOps}{: AWS (Lambda, API Gateway, RDS, CloudFront), Docker, Vercel, n8n} \\
+     \textbf{AI Tools}{: Claude Code, Cursor, v0, ChatGPT, GitHub Copilot} \\
+    }}
+ \end{itemize}
+ \vspace{-16pt}
 
-\vspace{0.3cm}
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {Master's of Information Technology}{2024 -- 2025}
+      {RMIT University}{Melbourne, VIC}
+  \resumeSubHeadingListEnd
+\vspace{-4pt}
 
-\cvsection{Achievements}
-
-\begin{itemize}
-\item Secured \textbf{1st} place in AI Agents Beginner Hackathon event organized by University and got a chance to present at \textbf{Microsoft Office, Melbourne}.
-\item Bagged \textbf{3rd rank} out of \textbf{200} participants in \textbf{O(NlogN)} University event.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\cvsection{Certificates}
-
-\begin{itemize}
-\item AccioJob Coding Competition
-\item CodeKaze
-\end{itemize}
-
-\vspace{0.3cm}
-
-\cvsection{Coding Profiles}
-
-\begin{itemize}
-\item Solved \textbf{1000+} problems on various coding platforms.
-\item Knight on Leetcode (Max Rating: \textbf{1944}), 3 star on Codechef.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\cvsection{Projects}
-
-\cvevent{Forge -- AI Learning Assistant}{\href{https://github.com/Chakit22}{GitHub}}{}{Team Project}
-\begin{itemize}
-\item Built an AI-powered tool with smart summaries, quizzes, mindmaps (React Flow), and speech-to-text notes.
-\item Integrated OpenAI GPT-4o, Weaviate for vector DB, and Whisper for transcription.
-\item Tech Stack: Next.js, GPT-4o, Weaviate, Whisper, Vercel
-\end{itemize}
-
-\end{paracol}
+%-----------ACHIEVEMENTS-----------
+\section{Achievements}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{1st Place} -- AI Agents Hackathon; presented at \textbf{Microsoft Office, Melbourne}. \\
+     \textbf{3rd Rank} out of \textbf{200} participants in \textbf{O(NlogN)} University coding event. \\
+     LeetCode Knight (Rating: \textbf{1944}), 3-star CodeChef. \\
+    }}
+ \end{itemize}
 
 \end{document}

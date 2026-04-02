@@ -5,9 +5,8 @@ import bcrypt from 'bcrypt';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
 import { HumanMessage, AIMessage } from '@langchain/core/messages';
-import { buildGraph, sanitizeLatex } from './agent.js';
+import { buildGraph, sanitizeHtml, isFullHtmlDocument } from './agent.js';
 import type { GraphStateType } from './agent.js';
 import dotenv from 'dotenv';
 import * as cheerio from 'cheerio';
@@ -25,6 +24,17 @@ import {
   type JobRow,
   type SessionRow,
 } from './db.js';
+import {
+  ensureScrapedJobsTable,
+  processApifyResults,
+  getScrapedJobs,
+  triggerSeekScrape,
+  triggerLinkedInScrape,
+} from './jobScraper.js';
+import {
+  isTelegramConfigured,
+  getUpdates,
+} from './telegram.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -41,10 +51,14 @@ const SESSION_SECRET =
   process.env.SESSION_SECRET || 'resume-tailor-secret-change-in-production';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 
-// Hash of admin password for comparison (hashed at startup)
+// Login only when NODE_ENV=production and ADMIN_PASSWORD is set (local dev skips auth).
 let adminPasswordHash: string | null = null;
-if (ADMIN_PASSWORD) {
+if (ADMIN_PASSWORD && isProduction) {
   adminPasswordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+} else if (ADMIN_PASSWORD && !isProduction) {
+  console.log(
+    '[auth] ADMIN_PASSWORD is set but NODE_ENV is not production — login disabled (local dev).',
+  );
 }
 
 app.use(
@@ -70,6 +84,23 @@ function requireAuth(
   if ((req.session as any)?.authenticated) return next();
   if (req.path === '/login' || req.path.startsWith('/login')) return next();
   if (req.method === 'POST' && req.path === '/login') return next();
+
+  // API routes: always 401 JSON — never redirect to /login HTML. Fetch follows 302 and
+  // treats 200 + login HTML as a "PDF" blob, so Preview iframes show the login form.
+  const apiJsonFirst =
+    req.path === '/tailor' ||
+    req.path === '/sessions' ||
+    req.path.startsWith('/session/') ||
+    req.path === '/chat' ||
+    req.path.startsWith('/cover-letter') ||
+    req.path === '/compile' ||
+    req.path === '/compile-base' ||
+    req.path.startsWith('/resume/');
+  if (apiJsonFirst) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
   if (req.headers.accept?.includes('application/json')) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
@@ -151,7 +182,18 @@ app.post('/logout', (req, res) => {
   req.session.destroy(() => {});
   res.redirect('/login');
 });
-const RESUME_PATH = path.resolve(__dirname, '../resumes/base-resume.tex');
+/** Path to base HTML resume; override with BASE_RESUME_PATH (absolute or relative to process.cwd()) for Docker mounts. */
+function resolveBaseResumePath(): string {
+  const fromEnv = process.env.BASE_RESUME_PATH?.trim();
+  if (fromEnv) {
+    return path.isAbsolute(fromEnv)
+      ? fromEnv
+      : path.resolve(process.cwd(), fromEnv);
+  }
+  return path.resolve(__dirname, '../resumes/base-resume.html');
+}
+
+const RESUME_PATH = resolveBaseResumePath();
 const OUTPUT_DIR = path.resolve(__dirname, '../resumes/output');
 
 const sessions: Map<string, GraphStateType> = new Map();
@@ -200,6 +242,7 @@ function processQueue() {
         baseResume,
       });
 
+      result.baseResume = loadBaseResume();
       sessions.set(next.id, result);
       next.status = 'done';
 
@@ -237,9 +280,10 @@ function persistSession(
   coverLetter?: string,
 ) {
   const existing = getSession(id);
+  const baseForDb = currentBaseResumeOr(state.baseResume);
   upsertSession({
     id,
-    baseResume: state.baseResume,
+    baseResume: baseForDb,
     parsedJD: state.parsedJD,
     atsAnalysis: state.atsAnalysis,
     tailoredResume: state.tailoredResume,
@@ -281,7 +325,7 @@ function hydrateFromDb() {
         });
         const sess: any = {
           messages,
-          baseResume: sRow.base_resume,
+          baseResume: currentBaseResumeOr(sRow.base_resume),
           parsedJD: sRow.parsed_jd,
           atsAnalysis: sRow.ats_analysis,
           tailoredResume: sRow.tailored_resume,
@@ -308,10 +352,24 @@ function loadBaseResume(): string {
   if (!fs.existsSync(RESUME_PATH)) {
     throw new Error(
       `Base resume not found at ${RESUME_PATH}. ` +
-        `Place your LaTeX resume at resume-tailor/backend/resumes/base-resume.tex`,
+        `Place your HTML resume at resume-tailor/backend/resumes/base-resume.html`,
     );
   }
   return fs.readFileSync(RESUME_PATH, 'utf-8');
+}
+
+/** Always use the latest file; fall back to stored snapshot only if the file is missing. */
+function currentBaseResumeOr(fallback: string): string {
+  try {
+    return loadBaseResume();
+  } catch {
+    return fallback;
+  }
+}
+
+/** Re-sync session.baseResume from disk so nothing uses a stale snapshot. */
+function refreshSessionBaseInPlace(session: GraphStateType): void {
+  session.baseResume = currentBaseResumeOr(session.baseResume);
 }
 
 // ---------------------------------------------------------------------------
@@ -511,6 +569,8 @@ app.get('/session/:id', (req, res) => {
     return;
   }
 
+  refreshSessionBaseInPlace(session);
+
   let atsAnalysis: any;
   try {
     atsAnalysis =
@@ -539,7 +599,7 @@ app.get('/session/:id', (req, res) => {
     label: job.label,
     atsAnalysis,
     tailoredResume: session.tailoredResume,
-    baseResume: session.baseResume,
+    baseResume: currentBaseResumeOr(session.baseResume),
     parsedJD: session.parsedJD,
     coverLetter,
     messages,
@@ -566,6 +626,8 @@ app.post('/chat', async (req, res) => {
       return;
     }
 
+    refreshSessionBaseInPlace(session);
+
     const { ChatGoogleGenerativeAI } = await import('@langchain/google-genai');
     const { SystemMessage, AIMessage } =
       await import('@langchain/core/messages');
@@ -574,13 +636,15 @@ app.post('/chat', async (req, res) => {
     const llm = new ChatGoogleGenerativeAI({
       model: 'gemini-2.5-flash-lite',
       temperature: 0.3,
+      maxOutputTokens: 8192,
     });
 
     const updatedMessages = [...session.messages, new HumanMessage(message)];
 
+    const originalBase = session.baseResume;
     const systemContent =
       CHAT_SYSTEM_PROMPT +
-      `\n\n--- Original Resume ---\n${session.baseResume}\n\n` +
+      `\n\n--- Original Resume ---\n${originalBase}\n\n` +
       `--- Tailored Resume ---\n${session.tailoredResume}\n\n` +
       `--- ATS Analysis ---\n${session.atsAnalysis}\n\n` +
       `--- Parsed JD ---\n${session.parsedJD}`;
@@ -608,19 +672,25 @@ app.post('/chat', async (req, res) => {
     const aiMsg = new AIMessage(content);
     const allMessages = [...updatedMessages, aiMsg];
 
-    const latexMatch = content.match(/```latex\n([\s\S]*?)```/);
+    const htmlMatch = content.match(/```html\n([\s\S]*?)```/);
     let updatedResume = session.tailoredResume;
     let resumeUpdated = false;
-    if (latexMatch) {
-      const extracted = latexMatch[1].trim();
+    let resumeUpdateRejected: string | undefined;
+    if (htmlMatch) {
+      const extracted = htmlMatch[1].trim();
       // Reject if LLM output looks like a generic template (would overwrite user's real resume)
       const looksLikeTemplate =
         /\b(Your Name|Company Name|University Name|you@example\.com|Location, Country)\b/i.test(
           extracted,
         );
       if (!looksLikeTemplate && extracted.length > 100) {
-        updatedResume = extracted;
-        resumeUpdated = true;
+        if (isFullHtmlDocument(extracted)) {
+          updatedResume = extracted;
+          resumeUpdated = true;
+        } else {
+          resumeUpdateRejected =
+            'HTML block was skipped: it must be the **complete** resume (from <!DOCTYPE html> through </html>), not a single section. Ask again for the full file in one ```html block.';
+        }
       }
     }
 
@@ -628,6 +698,7 @@ app.post('/chat', async (req, res) => {
       ...session,
       messages: allMessages,
       tailoredResume: updatedResume,
+      baseResume: originalBase,
     };
     sessions.set(sessionId, updatedSession);
     persistSession(sessionId, updatedSession);
@@ -637,6 +708,7 @@ app.post('/chat', async (req, res) => {
       content,
       tailoredResume: updatedResume,
       resumeUpdated,
+      ...(resumeUpdateRejected ? { resumeUpdateRejected } : {}),
     });
   } catch (err: any) {
     console.error('Error in /chat:', err);
@@ -670,6 +742,7 @@ app.post('/cover-letter', async (req, res) => {
     const llm = new ChatGoogleGenerativeAI({
       model: 'gemini-2.5-flash-lite',
       temperature: 0.5,
+      maxOutputTokens: 2048,
     });
 
     const prompt = `--- Tailored Resume (LaTeX) ---
@@ -874,57 +947,14 @@ app.post('/cover-letter/download/docx', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /compile-base — compile base-resume.tex and return PDF
+// POST /compile-base — return base resume HTML (client renders PDF via html2pdf)
 // ---------------------------------------------------------------------------
 
 app.post('/compile-base', async (req, res) => {
   try {
     const baseResume = loadBaseResume();
-    if (!fs.existsSync(OUTPUT_DIR)) {
-      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
-    const RESUMES_DIR = path.resolve(__dirname, '../resumes');
-    const fileId = 'base-' + crypto.randomUUID();
-    const texPath = path.join(RESUMES_DIR, `${fileId}.tex`);
-    const pdfPath = path.join(OUTPUT_DIR, `${fileId}.pdf`);
-
-    let clean = sanitizeLatex(baseResume);
-    clean = clean.replace(
-      /\\usepackage\[.*?\]\{hyperref\}/g,
-      '% hyperref loaded by altacv.cls',
-    );
-    clean = clean.replace(
-      /\\usepackage\{hyperref\}/g,
-      '% hyperref loaded by altacv.cls',
-    );
-    fs.writeFileSync(texPath, clean);
-
-    try {
-      execSync(`tectonic "${texPath}" --outdir "${OUTPUT_DIR}"`, {
-        timeout: 30000,
-        cwd: RESUMES_DIR,
-        stdio: 'pipe',
-      });
-    } catch (tecErr: any) {
-      try {
-        fs.unlinkSync(texPath);
-      } catch {}
-      res.status(500).json({
-        error: 'LaTeX compilation failed.',
-        details: tecErr.stderr?.toString().slice(-500) || tecErr.message,
-      });
-      return;
-    }
-    try {
-      fs.unlinkSync(texPath);
-    } catch {}
-
-    if (!fs.existsSync(pdfPath)) {
-      res.status(500).json({ error: 'PDF was not generated' });
-      return;
-    }
-
-    res.download(pdfPath, 'base-resume.pdf');
+    const clean = sanitizeHtml(baseResume);
+    res.json({ html: clean });
   } catch (err: any) {
     console.error('Error in /compile-base:', err);
     res.status(500).json({ error: err.message });
@@ -937,67 +967,35 @@ app.post('/compile-base', async (req, res) => {
 
 app.post('/compile', async (req, res) => {
   try {
-    const { sessionId, tailoredResume: bodyLatex } = req.body;
-    let latexToCompile: string | null = null;
+    const { sessionId, tailoredResume: bodyHtml } = req.body;
+    let htmlToCompile: string | null = null;
     const session = sessions.get(sessionId);
     if (session) {
-      latexToCompile = session.tailoredResume;
-    } else if (bodyLatex && typeof bodyLatex === 'string') {
-      latexToCompile = bodyLatex;
+      htmlToCompile = session.tailoredResume;
+    } else if (bodyHtml && typeof bodyHtml === 'string') {
+      htmlToCompile = bodyHtml;
     }
-    if (!latexToCompile) {
+    if (!htmlToCompile) {
       res.status(404).json({ error: 'Session not found. Run /tailor first.' });
       return;
     }
 
-    if (!fs.existsSync(OUTPUT_DIR)) {
-      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
-
-    const RESUMES_DIR = path.resolve(__dirname, '../resumes');
-    const fileId = sessionId || crypto.randomUUID();
-    const texPath = path.join(RESUMES_DIR, `${fileId}.tex`);
-    const pdfPath = path.join(OUTPUT_DIR, `${fileId}.pdf`);
-
-    let clean = sanitizeLatex(latexToCompile);
-    clean = clean.replace(
-      /\\usepackage\[.*?\]\{hyperref\}/g,
-      '% hyperref loaded by altacv.cls',
-    );
-    clean = clean.replace(
-      /\\usepackage\{hyperref\}/g,
-      '% hyperref loaded by altacv.cls',
-    );
-    fs.writeFileSync(texPath, clean);
-
-    try {
-      execSync(`tectonic "${texPath}" --outdir "${OUTPUT_DIR}"`, {
-        timeout: 30000,
-        cwd: RESUMES_DIR,
-        stdio: 'pipe',
-      });
-    } catch (tecErr: any) {
-      try {
-        fs.unlinkSync(texPath);
-      } catch {}
-      res.status(500).json({
-        error: 'LaTeX compilation failed.',
-        details: tecErr.stderr?.toString().slice(-500) || tecErr.message,
+    if (!isFullHtmlDocument(htmlToCompile)) {
+      res.status(400).json({
+        error:
+          'Tailored resume is not a complete HTML document (missing <!DOCTYPE html> or </html>).',
+        details:
+          'Compile needs the full file: <!DOCTYPE html> … </html>. ' +
+          'If Chat replaced your resume, ask the assistant to paste the **entire** resume in one ```html block, not just one section. Re-run Tailor to restore a full document.',
       });
       return;
     }
-    try {
-      fs.unlinkSync(texPath);
-    } catch {}
 
-    if (!fs.existsSync(pdfPath)) {
-      res.status(500).json({ error: 'PDF was not generated' });
-      return;
-    }
+    const clean = sanitizeHtml(htmlToCompile);
 
-    let downloadName = 'tailored-resume.pdf';
+    let downloadName = 'tailored-resume';
     if (sessionId) {
-      const job = jobQueue.find((j) => j.id === sessionId);
+      const job = jobQueue.find((j: any) => j.id === sessionId);
       let name = '';
       try {
         const ats =
@@ -1016,14 +1014,93 @@ app.post('/compile', async (req, res) => {
         .replace(/\s+/g, '-')
         .trim()
         .slice(0, 60);
-      if (safe) downloadName = safe + '-resume.pdf';
+      if (safe) downloadName = safe + '-resume';
     }
 
-    res.setHeader('X-Suggested-Filename', downloadName);
-    res.setHeader('Access-Control-Expose-Headers', 'X-Suggested-Filename');
-    res.download(pdfPath, downloadName);
+    res.json({ html: clean, filename: downloadName });
   } catch (err: any) {
     console.error('Error in /compile:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Apify Webhook — receives scraped job results
+// ---------------------------------------------------------------------------
+
+app.post('/api/apify-webhook', async (req, res) => {
+  try {
+    const { source, results } = req.body;
+
+    if (!results || !Array.isArray(results)) {
+      // Apify sends dataset ID — fetch results from Apify API
+      const datasetId = req.body?.resource?.defaultDatasetId;
+      const apifyToken = process.env.APIFY_API_TOKEN?.trim();
+      if (datasetId && apifyToken) {
+        const apiRes = await fetch(
+          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}`,
+        );
+        const items = (await apiRes.json()) as any[];
+        const appBaseUrl = `${req.protocol}://${req.get('host')}`;
+        const newCount = await processApifyResults(items, source || 'apify', appBaseUrl);
+        res.json({ ok: true, newJobs: newCount });
+        return;
+      }
+      res.status(400).json({ error: 'No results or datasetId provided' });
+      return;
+    }
+
+    const appBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const newCount = await processApifyResults(results, source || 'apify', appBaseUrl);
+    res.json({ ok: true, newJobs: newCount });
+  } catch (err: any) {
+    console.error('[apify-webhook] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// GET /api/scraped-jobs — list scraped jobs
+// ---------------------------------------------------------------------------
+
+app.get('/api/scraped-jobs', (_req, res) => {
+  try {
+    const jobs = getScrapedJobs(100);
+    res.json(jobs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/trigger-scrape — manually trigger a scrape
+// ---------------------------------------------------------------------------
+
+app.post('/api/trigger-scrape', async (req, res) => {
+  try {
+    const { source } = req.body || {};
+    if (source === 'linkedin') {
+      await triggerLinkedInScrape();
+    } else {
+      await triggerSeekScrape();
+    }
+    res.json({ ok: true, message: `Scrape triggered for ${source || 'seek'}` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/telegram-chat-id — helper to find your chat ID
+// ---------------------------------------------------------------------------
+
+app.get('/api/telegram-chat-id', async (_req, res) => {
+  try {
+    const data = await getUpdates();
+    res.json(data);
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -1178,7 +1255,17 @@ const WEB_UI_HTML = `<!DOCTYPE html>
   .preview-comparison .preview-close:hover { background: rgba(0,0,0,0.95); }
   .preview-panels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   .preview-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
-  .preview-panel-title { padding: 10px 14px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); border-bottom: 1px solid var(--border); text-align: center; }
+  .preview-panel-title { padding: 10px 14px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); border-bottom: 1px solid var(--border); text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; user-select: none; }
+  .preview-panel-title:active { background: rgba(255,255,255,0.03); }
+  .preview-panel-title .collapse-arrow { transition: transform 0.2s ease; font-size: 10px; }
+  .preview-panel.collapsed .collapse-arrow { transform: rotate(-90deg); }
+  .preview-panel.collapsed iframe,
+  .preview-panel.collapsed .preview-jd,
+  .preview-panel.collapsed .resize-handle { display: none !important; }
+  .preview-panel.collapsed .preview-panel-title { border-bottom: none; }
+  .preview-panel .resize-handle { display: none; height: 28px; cursor: ns-resize; align-items: center; justify-content: center; background: var(--bg-card); border-top: 1px solid var(--border); flex-shrink: 0; touch-action: none; -webkit-touch-callout: none; }
+  .preview-panel .resize-handle::after { content: ''; width: 40px; height: 4px; border-radius: 2px; background: var(--text-dim); pointer-events: none; }
+  .preview-panel.resizing iframe { pointer-events: none; }
   .preview-panel iframe { width: 100%; height: 700px; border: none; background: #fff; flex: 1; }
   .preview-jd { padding: 16px; font-size: 13px; line-height: 1.7; color: var(--text-muted); overflow-y: auto; height: 700px; white-space: pre-wrap; word-wrap: break-word; }
 
@@ -1222,7 +1309,8 @@ const WEB_UI_HTML = `<!DOCTYPE html>
     .main-inner { padding: 16px; }
     .preview-comparison { margin-left: 0; width: 100%; padding: 0 16px; }
     .preview-panels { grid-template-columns: 1fr; }
-    .preview-panel iframe, .preview-jd { height: 400px; }
+    .preview-panel iframe, .preview-jd { height: 400px; min-height: 150px; }
+    .preview-panel .resize-handle { display: flex; }
     .actions button { min-width: 100%; }
     .ats-score { font-size: 36px; }
     .empty-state { padding: 60px 16px; }
@@ -1327,16 +1415,19 @@ const WEB_UI_HTML = `<!DOCTYPE html>
         <button class="preview-close" onclick="closePreview()">Close</button>
         <div class="preview-panels">
           <div class="preview-panel">
-            <div class="preview-panel-title">Base Resume</div>
+            <div class="preview-panel-title" onclick="togglePanel(this)"><span class="collapse-arrow">&#9660;</span> Base Resume</div>
             <iframe id="preview-original"></iframe>
+            <div class="resize-handle"></div>
           </div>
           <div class="preview-panel">
-            <div class="preview-panel-title">Tailored Resume</div>
+            <div class="preview-panel-title" onclick="togglePanel(this)"><span class="collapse-arrow">&#9660;</span> Tailored Resume</div>
             <iframe id="preview-tailored"></iframe>
+            <div class="resize-handle"></div>
           </div>
           <div class="preview-panel">
-            <div class="preview-panel-title">Job Description</div>
+            <div class="preview-panel-title" onclick="togglePanel(this)"><span class="collapse-arrow">&#9660;</span> Job Description</div>
             <div class="preview-jd" id="preview-jd"></div>
+            <div class="resize-handle"></div>
           </div>
         </div>
       </div>
@@ -1347,6 +1438,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script>
 const store = {};
 let activeId = null;
@@ -1354,6 +1446,44 @@ let inputMode = "url";
 let pollTimers = {};
 
 function $(id) { return document.getElementById(id); }
+
+/** Same-origin API calls must send session cookie (especially after login). */
+function apiFetch(url, opts) {
+  return fetch(url, Object.assign({ credentials: "include" }, opts || {}));
+}
+
+/** Render an HTML string to a PDF blob using html2pdf.js */
+function htmlToPdfBlob(htmlString, filename) {
+  return new Promise((resolve, reject) => {
+    const container = document.createElement("div");
+    container.style.position = "absolute";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.innerHTML = htmlString;
+    document.body.appendChild(container);
+    const pageEl = container.querySelector(".page") || container;
+    // Strip all height/flex constraints — let content flow naturally for html2pdf
+    pageEl.style.cssText = "width:8.5in; padding:0.4in 0.5in; margin:0; background:white; height:auto; min-height:0; display:block;";
+    // Also override any @media screen styles
+    const screenStyles = container.querySelectorAll("style");
+    screenStyles.forEach(s => {
+      s.textContent = s.textContent.replace(/@media\\s+screen[^{]*\\{[^}]*\\{[^}]*\\}\\s*\\}/g, "");
+    });
+    html2pdf().set({
+      margin: 0,
+      filename: (filename || "resume") + ".pdf",
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0, y: 0 },
+      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+    }).from(pageEl).outputPdf("blob").then(blob => {
+      document.body.removeChild(container);
+      resolve(blob);
+    }).catch(err => {
+      document.body.removeChild(container);
+      reject(err);
+    });
+  });
+}
 
 function toggleSidebar() {
   const sidebar = $("sidebar");
@@ -1454,7 +1584,7 @@ async function submitJob() {
 
   $("tailor-btn").disabled = true;
   try {
-    const res = await fetch("/tailor", {
+    const res = await apiFetch("/tailor", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -1493,7 +1623,12 @@ function startPolling(id) {
 
   pollTimers[id] = setInterval(async () => {
     try {
-      const res = await fetch("/session/" + id);
+      const res = await apiFetch("/session/" + id);
+      if (res.status === 401) {
+        stopPolling(id);
+        window.location.href = "/login";
+        return;
+      }
       const data = await res.json();
 
       if (!store[id]) { stopPolling(id); return; }
@@ -1537,7 +1672,23 @@ function selectThread(id) {
   if (!t) return;
 
   if (t.status === "done") {
-    showSessionResults(id);
+    void (async () => {
+      try {
+        const res = await apiFetch("/session/" + id);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === "done" && store[id]) {
+            store[id].tailoredResume = data.tailoredResume;
+            store[id].baseResume = data.baseResume;
+            if (data.parsedJD != null) store[id].parsedJD = data.parsedJD;
+            store[id].coverLetter = data.coverLetter || "";
+            if (data.atsAnalysis) store[id].atsAnalysis = data.atsAnalysis;
+            if (data.messages) store[id].serverMessages = data.messages;
+          }
+        }
+      } catch {}
+      if (activeId === id) showSessionResults(id);
+    })();
   } else if (t.status === "error") {
     showSessionError(id);
   } else {
@@ -1628,7 +1779,7 @@ async function sendChat() {
 
   $("send-btn").disabled = true;
   try {
-    const res = await fetch("/chat", {
+    const res = await apiFetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: activeId, message: msg }),
@@ -1637,6 +1788,13 @@ async function sendChat() {
     if (!res.ok) throw new Error(data.error);
     appendMsg("assistant", data.content);
     store[activeId].chatMessages.push({ role: "assistant", content: data.content });
+    if (data.resumeUpdateRejected) {
+      appendMsg("assistant", "[Resume not updated] " + data.resumeUpdateRejected);
+      store[activeId].chatMessages.push({
+        role: "assistant",
+        content: "[Resume not updated] " + data.resumeUpdateRejected,
+      });
+    }
     if (data.resumeUpdated) {
       store[activeId].tailoredResume = data.tailoredResume;
       $("latex-preview").textContent = data.tailoredResume;
@@ -1673,26 +1831,25 @@ async function compilePDF() {
   btn.textContent = "Compiling...";
   btn.disabled = true;
   try {
-    const res = await fetch("/compile", {
+    const res = await apiFetch("/compile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: activeId, tailoredResume: store[activeId].tailoredResume }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || err.details || "Compilation failed");
+      let msg = "Compilation failed";
+      try {
+        const err = await res.json();
+        msg = (err.error || msg) + (err.details ? ("\\n\\n" + err.details) : "");
+      } catch { msg = await res.text() || msg; }
+      throw new Error(msg);
     }
-    const blob = await res.blob();
+    const data = await res.json();
+    const blob = await htmlToPdfBlob(data.html, data.filename || "tailored-resume");
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    let fn = res.headers.get("X-Suggested-Filename");
-    if (!fn) {
-      const ats = store[activeId].atsAnalysis;
-      const name = (ats?.company || ats?.jobTitle || store[activeId].label || "").replace(/[^a-zA-Z0-9\\s\\-_]/g, "").replace(/\\s+/g, "-").trim().slice(0, 60);
-      fn = name ? name + "-resume.pdf" : "tailored-resume.pdf";
-    }
-    a.download = fn;
+    a.download = (data.filename || "tailored-resume") + ".pdf";
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
@@ -1714,22 +1871,25 @@ async function previewPDF() {
   btn.disabled = true;
   btn.textContent = "Compiling...";
   try {
-    const compilePdf = (latex) => fetch("/compile", {
+    const s = store[activeId];
+
+    const fetchHtml = (url, body) => apiFetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: activeId, tailoredResume: latex }),
+      body: JSON.stringify(body),
     }).then(r => {
-      if (!r.ok) return r.json().then(e => { throw new Error(e.error || "Compilation failed"); });
-      return r.blob();
+      if (!r.ok) return r.json().then(e => { throw new Error(e.error || "Failed"); });
+      return r.json();
     });
 
-    const s = store[activeId];
-    const compileBase = () => fetch("/compile-base", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
-      .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || "Compilation failed"); }); return r.blob(); });
+    const [tailoredData, baseData] = await Promise.all([
+      fetchHtml("/compile", { sessionId: activeId, tailoredResume: s.tailoredResume }),
+      fetchHtml("/compile-base", {}),
+    ]);
 
     const [tailoredBlob, baseBlob] = await Promise.all([
-      compilePdf(s.tailoredResume),
-      compileBase(),
+      htmlToPdfBlob(tailoredData.html, tailoredData.filename || "tailored-resume"),
+      htmlToPdfBlob(baseData.html, "base-resume"),
     ]);
 
     revokePreviewUrls();
@@ -1785,7 +1945,7 @@ async function generateCoverLetter() {
   btn.disabled = true;
   btn.textContent = "Generating...";
   try {
-    const res = await fetch("/cover-letter", {
+    const res = await apiFetch("/cover-letter", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: activeId }),
@@ -1826,7 +1986,7 @@ async function saveCoverLetter() {
   const mainBtn = $("cover-save-btn");
   [toolbarBtn, mainBtn].forEach(b => { if (b) { b.disabled = true; b.textContent = "Saving..."; } });
   try {
-    const res = await fetch("/cover-letter/save", {
+    const res = await apiFetch("/cover-letter/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: activeId, coverLetter: content }),
@@ -1856,7 +2016,7 @@ async function saveCoverLetter() {
 async function downloadCoverLetterAs(format) {
   if (!activeId || !store[activeId] || !store[activeId].coverLetter) return;
   try {
-    const res = await fetch("/cover-letter/download/" + format, {
+    const res = await apiFetch("/cover-letter/download/" + format, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: activeId }),
@@ -1880,7 +2040,11 @@ async function downloadCoverLetterAs(format) {
 
 async function init() {
   try {
-    const res = await fetch("/sessions");
+    const res = await apiFetch("/sessions");
+    if (res.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
     const jobs = await res.json();
     for (const j of jobs) {
       store[j.id] = {
@@ -1895,7 +2059,7 @@ async function init() {
         chatMessages: [],
       };
       if (j.status === "done") {
-        const sr = await fetch("/session/" + j.id);
+        const sr = await apiFetch("/session/" + j.id);
         const data = await sr.json();
         if (data.status === "done") {
           store[j.id].tailoredResume = data.tailoredResume;
@@ -1915,14 +2079,75 @@ async function init() {
   }
 }
 
+// -- Panel collapse/expand --
+function togglePanel(titleEl) {
+  const panel = titleEl.closest('.preview-panel');
+  panel.classList.toggle('collapsed');
+}
+
+// -- Drag-to-resize panel height (mobile) --
+(function() {
+  let activePanel = null;
+  let startY = 0;
+  let startH = 0;
+  let contentEl = null;
+
+  function getContentEl(panel) {
+    return panel.querySelector('iframe') || panel.querySelector('.preview-jd');
+  }
+
+  function onStart(e) {
+    const handle = e.target.closest('.resize-handle');
+    if (!handle) return;
+    activePanel = handle.closest('.preview-panel');
+    contentEl = getContentEl(activePanel);
+    if (!contentEl) return;
+    startY = e.touches ? e.touches[0].clientY : e.clientY;
+    startH = contentEl.getBoundingClientRect().height;
+    document.addEventListener('mousemove', onMove, { passive: false });
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!activePanel) return;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const delta = clientY - startY;
+    const newH = Math.max(150, startH + delta);
+    contentEl.style.height = newH + 'px';
+    e.preventDefault();
+  }
+
+  function onEnd() {
+    activePanel = null;
+    contentEl = null;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+  }
+
+  document.addEventListener('mousedown', onStart);
+  document.addEventListener('touchstart', onStart, { passive: false });
+})();
+
 init();
 </script>
 </body>
 </html>`;
 
 hydrateFromDb();
+ensureScrapedJobsTable();
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Resume Tailor running on http://localhost:${PORT}`);
+  console.log(`📄 Base resume file: ${RESUME_PATH}`);
+  if (isTelegramConfigured()) {
+    console.log(`🤖 Telegram bot connected`);
+  } else {
+    console.log(`⚠️  Telegram not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env)`);
+  }
   console.log(`\nOpen http://localhost:${PORT} in your browser to start.\n`);
 });
