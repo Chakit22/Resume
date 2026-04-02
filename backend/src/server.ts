@@ -84,6 +84,9 @@ function requireAuth(
   if ((req.session as any)?.authenticated) return next();
   if (req.path === '/login' || req.path.startsWith('/login')) return next();
   if (req.method === 'POST' && req.path === '/login') return next();
+  // Webhooks must be publicly accessible (Apify, Telegram)
+  if (req.path === '/api/apify-webhook') return next();
+  if (req.path === '/api/telegram-chat-id') return next();
 
   // API routes: always 401 JSON — never redirect to /login HTML. Fetch follows 302 and
   // treats 200 + login HTML as a "PDF" blob, so Preview iframes show the login form.
