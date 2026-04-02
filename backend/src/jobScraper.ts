@@ -180,10 +180,10 @@ export async function triggerSeekScrape(): Promise<string | null> {
     return null;
   }
 
-  const actorId = 'websift/seek-job-scraper-pay-per-row';
+  const actorId = 'websift~seek-job-scraper-pay-per-row';
 
   for (const query of SEARCH_QUERIES) {
-    const seekUrl = `https://www.seek.com.au/${encodeURIComponent(query).replace(/%20/g, '-')}-jobs/in-All-Australia?sortmode=ListedDate`;
+    const seekUrl = `https://www.seek.com.au/${query.toLowerCase().replace(/\s+/g, '-')}-jobs/in-All-Australia?sortmode=ListedDate`;
 
     try {
       const res = await fetch(
@@ -193,12 +193,16 @@ export async function triggerSeekScrape(): Promise<string | null> {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             searchUrl: seekUrl,
-            maxResults: 20,
+            maxItems: 20,
           }),
         },
       );
       const data: any = await res.json();
-      console.log(`[jobScraper] Triggered Seek scrape for "${query}": run ${data?.data?.id}`);
+      if (data?.data?.id) {
+        console.log(`[jobScraper] Triggered Seek scrape for "${query}": run ${data.data.id}`);
+      } else {
+        console.error(`[jobScraper] Seek scrape failed for "${query}":`, JSON.stringify(data).slice(0, 300));
+      }
     } catch (err) {
       console.error(`[jobScraper] Failed to trigger Seek scrape for "${query}":`, err);
     }
@@ -215,7 +219,7 @@ export async function triggerLinkedInScrape(): Promise<string | null> {
     return null;
   }
 
-  const actorId = 'curious_coder/linkedin-jobs-scraper';
+  const actorId = 'curious_coder~linkedin-jobs-scraper';
 
   for (const query of SEARCH_QUERIES) {
     try {
@@ -228,12 +232,16 @@ export async function triggerLinkedInScrape(): Promise<string | null> {
             title: query,
             location: 'Australia',
             rows: 20,
-            publishedAt: 'r86400', // last 24 hours
+            publishedAt: 'r86400',
           }),
         },
       );
       const data: any = await res.json();
-      console.log(`[jobScraper] Triggered LinkedIn scrape for "${query}": run ${data?.data?.id}`);
+      if (data?.data?.id) {
+        console.log(`[jobScraper] Triggered LinkedIn scrape for "${query}": run ${data.data.id}`);
+      } else {
+        console.error(`[jobScraper] LinkedIn scrape failed for "${query}":`, JSON.stringify(data).slice(0, 300));
+      }
     } catch (err) {
       console.error(`[jobScraper] Failed to trigger LinkedIn scrape for "${query}":`, err);
     }

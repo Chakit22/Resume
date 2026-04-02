@@ -1254,7 +1254,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
   .preview-comparison .preview-close { position: absolute; top: 12px; right: 28px; background: rgba(0,0,0,0.75); color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; z-index: 3; }
   .preview-comparison .preview-close:hover { background: rgba(0,0,0,0.95); }
   .preview-panels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-  .preview-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .preview-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: visible; display: flex; flex-direction: column; }
   .preview-panel-title { padding: 10px 14px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); border-bottom: 1px solid var(--border); text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; user-select: none; }
   .preview-panel-title:active { background: rgba(255,255,255,0.03); }
   .preview-panel-title .collapse-arrow { transition: transform 0.2s ease; font-size: 10px; }
@@ -2096,12 +2096,18 @@ function togglePanel(titleEl) {
     return panel.querySelector('iframe') || panel.querySelector('.preview-jd');
   }
 
+  document.querySelectorAll('.resize-handle').forEach(function(handle) {
+    handle.addEventListener('mousedown', onStart, { passive: false });
+    handle.addEventListener('touchstart', onStart, { passive: false });
+  });
+
   function onStart(e) {
-    const handle = e.target.closest('.resize-handle');
-    if (!handle) return;
+    const handle = e.currentTarget;
     activePanel = handle.closest('.preview-panel');
     contentEl = getContentEl(activePanel);
     if (!contentEl) return;
+    activePanel.classList.add('resizing');
+    contentEl.style.flex = 'none';
     startY = e.touches ? e.touches[0].clientY : e.clientY;
     startH = contentEl.getBoundingClientRect().height;
     document.addEventListener('mousemove', onMove, { passive: false });
@@ -2109,6 +2115,7 @@ function togglePanel(titleEl) {
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
     e.preventDefault();
+    e.stopPropagation();
   }
 
   function onMove(e) {
@@ -2121,6 +2128,7 @@ function togglePanel(titleEl) {
   }
 
   function onEnd() {
+    if (activePanel) activePanel.classList.remove('resizing');
     activePanel = null;
     contentEl = null;
     document.removeEventListener('mousemove', onMove);
@@ -2128,9 +2136,6 @@ function togglePanel(titleEl) {
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onEnd);
   }
-
-  document.addEventListener('mousedown', onStart);
-  document.addEventListener('touchstart', onStart, { passive: false });
 })();
 
 init();

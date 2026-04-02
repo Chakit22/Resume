@@ -5,3 +5,6 @@ services:
       - '3000:3000'
     env_file:
       - .env
+    # Override image default so local Docker matches `npm run dev` (no login even if ADMIN_PASSWORD is in .env).
+    environment:
+      - NODE_ENV=development
