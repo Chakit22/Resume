@@ -144,11 +144,19 @@ export async function processApifyResults(
   for (const item of results) {
     // Normalize fields from different Apify actors
     const title = item.title || item.jobTitle || '';
-    const company = item.company || item.companyName || item.advertiser || '';
-    const location = item.location || item.jobLocation || '';
+    const company = item.company || item.companyName || item.advertiserDescription || '';
+    const url = item.url || item.jobLink || item.jobUrl || item.link || '';
     const salary = item.salary || item.salaryRange || '';
-    const url = item.url || item.jobUrl || item.link || '';
-    const postedAt = item.postedAt || item.listedDate || item.date || '';
+    const postedAt = item.postedAt || item.listingDate || item.listedDate || item.date || '';
+    // jobLocation can be an array of objects or a string
+    let location = '';
+    if (typeof item.location === 'string') {
+      location = item.location;
+    } else if (Array.isArray(item.jobLocation) && item.jobLocation.length > 0) {
+      location = item.jobLocation[0].label || '';
+    } else if (typeof item.jobLocation === 'string') {
+      location = item.jobLocation;
+    }
 
     if (!title || !url) continue;
     if (isSeniorRole(title)) continue;
