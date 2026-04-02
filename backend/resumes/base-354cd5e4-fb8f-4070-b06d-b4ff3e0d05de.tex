@@ -1,0 +1,148 @@
+\documentclass[10pt,a4paper]{altacv}
+
+\geometry{left=1cm,right=1cm,top=1.25cm,bottom=1.25cm,columnsep=1.2cm}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[default]{lato}
+\usepackage{paracol}
+% hyperref loaded by altacv.cls
+
+% rgb (not HTML hex): Tectonic's xcolor often rejects {HTML}{...} and halts compile
+\definecolor{Navy}{rgb}{0,0,0.50196}
+\definecolor{SlateGrey}{rgb}{0.18039,0.18039,0.18039}
+\definecolor{LightGrey}{rgb}{0.4,0.4,0.4}
+\colorlet{heading}{Navy}
+\colorlet{accent}{Navy}
+\colorlet{emphasis}{SlateGrey}
+\colorlet{body}{LightGrey}
+
+\renewcommand{\itemmarker}{{\small\textbullet}}
+\renewcommand{\ratingmarker}{\faCircle}
+
+\begin{document}
+
+\name{Chakit Bhandari}
+\tagline{AI Full Stack Developer}
+\personalinfo{%
+  \location{Melbourne, VIC}
+  \email{chakitbhandari22@gmail.com}
+  \phone{+61 434 057 320}
+}
+
+\begin{fullwidth}
+\makecvheader
+\end{fullwidth}
+
+\columnratio{0.65}
+\begin{paracol}{2}
+
+% LEFT COLUMN
+\cvsection{Experience}
+
+\cvevent{AI Engineer}{Heya Voice AI}{Aug 2025 - Present}{Melbourne, VIC}
+\begin{itemize}
+\item Built AI-driven voice automation systems using LLM orchestration and workflow automation to enable 24/7 intelligent customer interactions and reduce manual call handling by upto 80\%.
+\item Built an internal CLI tool to streamline deployment and configuration of voice agents, improving reliability.
+\item Developed and maintained complex n8n workflows, enabling end-to-end automation.
+\end{itemize}
+\divider
+
+\cvevent{Software Developer Intern}{Digital Asset Custody Solutions Pty Ltd.}{Jul 2025 - Oct 2025}{Melbourne, VIC}
+\begin{itemize}
+\item Designed and built the end-to-end architecture for a crypto pricing engine on AWS, supporting real-time pricing for 20+ digital assets.
+\item Integrated 5+ external market data providers to deliver reliable, low-latency pricing data.
+\item Developed serverless pipelines using API Gateway, AWS Lambda, and RDS, reducing infrastructure overhead by 45\% while maintaining secure and scalable data flows.
+\end{itemize}
+\divider
+
+\cvevent{Software Engineer}{Film Never Die}{Nov 2024 - Feb 2025}{Melbourne, VIC}
+\begin{itemize}
+\item Worked on a groundbreaking SaaS product helping clients save up to \$30,000 annually.
+\item Developed a Mobile app using Flutter for fast, user-friendly image access, replacing Dropbox.
+\item Hosted images ranging from 5MB to 50MB on CloudFront CDN for faster access and efficient delivery.
+\end{itemize}
+\divider
+
+\cvevent{Software Developer}{Fresh Prints}{Jun 2023 -- Aug 2023}{Remote}
+\begin{itemize}
+\item Developed Customer Portal features enabling direct client ordering.
+\item Built a PDF image extraction API and migrated it to a serverless AWS Lambda architecture, reducing costs by 96\%.
+\item Containerized services using Docker to improve scalability and reduce OS dependencies.
+\end{itemize}
+
+\switchcolumn
+
+% RIGHT COLUMN
+\cvsection{Education}
+
+\cvevent{Master's of Information Technology}{RMIT University, Melbourne}{2024 - 2025}{}
+
+\vspace{0.3cm}
+
+\cvsection{Skills}
+
+\cvtag{Problem Solving}
+\cvtag{TypeScript}
+\cvtag{Node.js}
+\cvtag{React}
+\cvtag{AWS}
+\cvtag{LLMs}
+
+\vspace{0.3cm}
+
+\cvsection{Links}
+
+\cvtag{\href{https://www.linkedin.com/in/chakit-bhandari}{\textbf{LinkedIn}}}
+\cvtag{\href{https://github.com/Chakit22}{\textbf{GitHub}}}
+\cvtag{\href{https://leetcode.com/Chakit_Bhandari}{\textbf{LeetCode}}}
+
+\vspace{0.3cm}
+
+\cvsection{Achievements}
+
+\begin{itemize}
+\item Secured \textbf{1st} place in AI Agents Beginner Hackathon event organized by University and got a chance to present at \textbf{Microsoft Office, Melbourne}.
+\item Bagged \textbf{3rd rank} out of \textbf{200} participants in \textbf{O(NlogN)} University event.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\cvsection{Certificates}
+
+\begin{itemize}
+\item AccioJob Coding Competition
+\item CodeKaze
+\end{itemize}
+
+\vspace{0.3cm}
+
+\cvsection{Coding Profiles}
+
+\begin{itemize}
+\item Solved \textbf{1000+} problems on various coding platforms.
+\item Knight on Leetcode (Max Rating: \textbf{1944}), 3 star on Codechef.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\cvsection{Projects}
+
+\cvevent{Medico-Legal RAG System}{\href{https://github.com/Chakit22}{GitHub}}{}{Personal Project}
+\begin{itemize}
+\item Designed and built an intelligent RAG pipeline for medico-legal reports using \textbf{LangGraph}, \textbf{LangChain}, and \textbf{FastAPI}.
+\item Implemented a query router that classifies questions and selects between three retrieval strategies.
+\item Achieved a 75\% reduction in irrelevant data retrieval by targeting specific report sections.
+\end{itemize}
+\divider
+
+\cvevent{Forge -- AI Learning Assistant}{\href{https://github.com/Chakit22}{GitHub}}{}{Team Project}
+\begin{itemize}
+\item Built an AI-powered tool with smart summaries, quizzes, mindmaps (React Flow), and speech-to-text notes.
+\item Integrated OpenAI GPT-4o, Weaviate for vector DB, and Whisper for transcription.
+\item Tech Stack: Next.js, GPT-4o, Weaviate, Whisper, Vercel
+\end{itemize}
+
+\end{paracol}
+
+\end{document}
