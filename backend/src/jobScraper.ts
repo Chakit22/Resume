@@ -25,6 +25,15 @@ export function ensureScrapedJobsTable() {
     );
     CREATE INDEX IF NOT EXISTS idx_scraped_url ON scraped_jobs(url);
   `);
+
+  getDb().exec(`
+    CREATE TABLE IF NOT EXISTS apify_runs (
+      run_id      TEXT PRIMARY KEY,
+      actor       TEXT NOT NULL,
+      processed   INTEGER NOT NULL DEFAULT 0,
+      created_at  INTEGER NOT NULL
+    );
+  `);
 }
 
 export interface ScrapedJob {
@@ -45,8 +54,7 @@ export interface ScrapedJob {
 // ── CRUD ──
 
 function jobExists(url: string): boolean {
-  const row = getDb().prepare('SELECT 1 FROM scraped_jobs WHERE url = ?').get(url);
-  return !!row;
+  return !!getDb().prepare('SELECT 1 FROM scraped_jobs WHERE url = ?').get(url);
 }
 
 function insertScrapedJob(job: {
@@ -75,44 +83,33 @@ export function markTailored(id: string, sessionId: string) {
 
 export function getScrapedJobs(limit = 50): ScrapedJob[] {
   const rows = getDb().prepare(
-    'SELECT * FROM scraped_jobs ORDER BY created_at DESC LIMIT ?'
+    'SELECT * FROM scraped_jobs ORDER BY created_at DESC LIMIT ?',
   ).all(limit) as any[];
   return rows.map(r => ({
-    id: r.id,
-    title: r.title,
-    company: r.company,
-    location: r.location,
-    salary: r.salary,
-    url: r.url,
-    postedAt: r.posted_at,
-    source: r.source,
-    notified: !!r.notified,
-    tailored: !!r.tailored,
-    sessionId: r.session_id,
+    id: r.id, title: r.title, company: r.company, location: r.location,
+    salary: r.salary, url: r.url, postedAt: r.posted_at, source: r.source,
+    notified: !!r.notified, tailored: !!r.tailored, sessionId: r.session_id,
     createdAt: r.created_at,
   }));
 }
 
-export function getScrapedJobByUrl(url: string): ScrapedJob | null {
-  const r = getDb().prepare('SELECT * FROM scraped_jobs WHERE url = ?').get(url) as any;
-  if (!r) return null;
-  return {
-    id: r.id,
-    title: r.title,
-    company: r.company,
-    location: r.location,
-    salary: r.salary,
-    url: r.url,
-    postedAt: r.posted_at,
-    source: r.source,
-    notified: !!r.notified,
-    tailored: !!r.tailored,
-    sessionId: r.session_id,
-    createdAt: r.created_at,
-  };
+// ── Run tracking ──
+
+function trackRun(runId: string, actor: string) {
+  getDb().prepare(
+    'INSERT OR IGNORE INTO apify_runs (run_id, actor, processed, created_at) VALUES (?, ?, 0, ?)',
+  ).run(runId, actor, Date.now());
 }
 
-// ── Search Queries ──
+function getUnprocessedRuns(): Array<{ run_id: string; actor: string }> {
+  return getDb().prepare('SELECT run_id, actor FROM apify_runs WHERE processed = 0').all() as any[];
+}
+
+function markRunProcessed(runId: string) {
+  getDb().prepare('UPDATE apify_runs SET processed = 1 WHERE run_id = ?').run(runId);
+}
+
+// ── Filters ──
 
 const SEARCH_QUERIES = [
   'Software Engineer',
@@ -122,7 +119,6 @@ const SEARCH_QUERIES = [
   'Backend Engineer',
 ];
 
-// Filter out senior roles
 const SENIOR_KEYWORDS = [
   'senior', 'sr.', 'sr ', 'lead', 'principal', 'staff', 'director', 'manager', 'head of', 'vp ',
 ];
@@ -132,7 +128,7 @@ function isSeniorRole(title: string): boolean {
   return SENIOR_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-// ── Process Apify Webhook Results ──
+// ── Process results ──
 
 export async function processApifyResults(
   results: any[],
@@ -142,13 +138,11 @@ export async function processApifyResults(
   let newCount = 0;
 
   for (const item of results) {
-    // Normalize fields from different Apify actors
     const title = item.title || item.jobTitle || '';
     const company = item.company || item.companyName || item.advertiserDescription || '';
     const url = item.url || item.jobLink || item.jobUrl || item.link || '';
     const salary = item.salary || item.salaryRange || '';
     const postedAt = item.postedAt || item.listingDate || item.listedDate || item.date || '';
-    // jobLocation can be an array of objects or a string
     let location = '';
     if (typeof item.location === 'string') {
       location = item.location;
@@ -165,7 +159,6 @@ export async function processApifyResults(
     const id = crypto.randomUUID();
     insertScrapedJob({ id, title, company, location, salary, url, postedAt, source });
 
-    // Send Telegram alert
     try {
       await sendJobAlert({ title, company, location, salary, url, postedAt, appBaseUrl });
       markNotified(id);
@@ -180,80 +173,119 @@ export async function processApifyResults(
   return newCount;
 }
 
-// ── Trigger Apify Seek Scraper ──
+// ── Trigger actors ──
 
-export async function triggerSeekScrape(): Promise<string | null> {
-  if (!APIFY_TOKEN) {
-    console.warn('[jobScraper] APIFY_API_TOKEN not set, skipping.');
-    return null;
-  }
-
-  const actorId = 'websift~seek-job-scraper-pay-per-row';
-
-  for (const query of SEARCH_QUERIES) {
-    const seekUrl = `https://www.seek.com.au/${query.toLowerCase().replace(/\s+/g, '-')}-jobs/in-All-Australia?sortmode=ListedDate`;
-
-    try {
-      const res = await fetch(
-        `https://api.apify.com/v2/acts/${actorId}/runs?token=${APIFY_TOKEN}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            searchUrl: seekUrl,
-            maxItems: 20,
-          }),
-        },
-      );
-      const data: any = await res.json();
-      if (data?.data?.id) {
-        console.log(`[jobScraper] Triggered Seek scrape for "${query}": run ${data.data.id}`);
-      } else {
-        console.error(`[jobScraper] Seek scrape failed for "${query}":`, JSON.stringify(data).slice(0, 300));
-      }
-    } catch (err) {
-      console.error(`[jobScraper] Failed to trigger Seek scrape for "${query}":`, err);
+async function triggerActor(actorId: string, input: Record<string, any>): Promise<string | null> {
+  if (!APIFY_TOKEN) return null;
+  try {
+    const res = await fetch(
+      `https://api.apify.com/v2/acts/${actorId}/runs?token=${APIFY_TOKEN}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    );
+    const data: any = await res.json();
+    if (data?.data?.id) {
+      console.log(`[jobScraper] Started run ${data.data.id} for ${actorId}`);
+      trackRun(data.data.id, actorId);
+      return data.data.id;
     }
+    console.error(`[jobScraper] Failed to start ${actorId}:`, JSON.stringify(data).slice(0, 200));
+  } catch (err) {
+    console.error(`[jobScraper] Error starting ${actorId}:`, err);
   }
-
-  return 'triggered';
+  return null;
 }
 
-// ── Trigger Apify LinkedIn Scraper ──
-
-export async function triggerLinkedInScrape(): Promise<string | null> {
-  if (!APIFY_TOKEN) {
-    console.warn('[jobScraper] APIFY_API_TOKEN not set, skipping.');
-    return null;
-  }
-
-  const actorId = 'curious_coder~linkedin-jobs-scraper';
-
+export async function triggerSeekScrape(): Promise<void> {
+  if (!APIFY_TOKEN) return;
   for (const query of SEARCH_QUERIES) {
+    const searchUrl = `https://www.seek.com.au/${query.toLowerCase().replace(/\s+/g, '-')}-jobs/in-All-Australia?sortmode=ListedDate`;
+    await triggerActor('websift~seek-job-scraper-pay-per-row', { searchUrl, maxItems: 20 });
+  }
+}
+
+export async function triggerLinkedInScrape(): Promise<void> {
+  if (!APIFY_TOKEN) return;
+  for (const query of SEARCH_QUERIES) {
+    await triggerActor('curious_coder~linkedin-jobs-scraper', {
+      title: query, location: 'Australia', rows: 20, publishedAt: 'r86400',
+    });
+  }
+}
+
+// ── Poll for completed runs ──
+
+export async function pollForResults(appBaseUrl: string): Promise<number> {
+  if (!APIFY_TOKEN) return 0;
+
+  const pending = getUnprocessedRuns();
+  if (pending.length === 0) return 0;
+
+  console.log(`[jobScraper] Polling ${pending.length} pending runs...`);
+  let totalNew = 0;
+
+  for (const run of pending) {
     try {
       const res = await fetch(
-        `https://api.apify.com/v2/acts/${actorId}/runs?token=${APIFY_TOKEN}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: query,
-            location: 'Australia',
-            rows: 20,
-            publishedAt: 'r86400',
-          }),
-        },
+        `https://api.apify.com/v2/actor-runs/${run.run_id}?token=${APIFY_TOKEN}`,
       );
       const data: any = await res.json();
-      if (data?.data?.id) {
-        console.log(`[jobScraper] Triggered LinkedIn scrape for "${query}": run ${data.data.id}`);
-      } else {
-        console.error(`[jobScraper] LinkedIn scrape failed for "${query}":`, JSON.stringify(data).slice(0, 300));
+      const status = data?.data?.status;
+
+      if (status === 'SUCCEEDED') {
+        const datasetId = data.data.defaultDatasetId;
+        if (datasetId) {
+          const itemsRes = await fetch(
+            `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}`,
+          );
+          const items = (await itemsRes.json()) as any[];
+          const source = run.actor.includes('seek') ? 'seek' : 'linkedin';
+          totalNew += await processApifyResults(items, source, appBaseUrl);
+        }
+        markRunProcessed(run.run_id);
+      } else if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(status)) {
+        console.error(`[jobScraper] Run ${run.run_id} ${status}`);
+        markRunProcessed(run.run_id);
       }
     } catch (err) {
-      console.error(`[jobScraper] Failed to trigger LinkedIn scrape for "${query}":`, err);
+      console.error(`[jobScraper] Error polling run ${run.run_id}:`, err);
     }
   }
 
-  return 'triggered';
+  return totalNew;
+}
+
+// ── Scheduler — runs inside server process ──
+
+export function startJobScheduler(appBaseUrl: string) {
+  if (!APIFY_TOKEN) {
+    console.log('[jobScraper] ⚠️  APIFY_API_TOKEN not set — scheduler disabled.');
+    return;
+  }
+
+  // Poll for completed runs every 2 minutes
+  setInterval(() => pollForResults(appBaseUrl), 2 * 60 * 1000);
+
+  // Check every 30 min if it's time to trigger scrapes (8am + 5pm AEST)
+  setInterval(async () => {
+    const aestHour = (new Date().getUTCHours() + 10) % 24;
+    const minute = new Date().getMinutes();
+    if ((aestHour === 8 || aestHour === 17) && minute < 30) {
+      console.log(`[jobScraper] 🔄 Scheduled scrape at ${aestHour}:${minute} AEST`);
+      await triggerSeekScrape();
+      await triggerLinkedInScrape();
+    }
+  }, 30 * 60 * 1000);
+
+  // Initial scrape on startup
+  console.log('[jobScraper] 🚀 Scheduler started. Running initial scrape...');
+  (async () => {
+    await triggerSeekScrape();
+    await triggerLinkedInScrape();
+    // First poll after 2 min
+    setTimeout(() => pollForResults(appBaseUrl), 2 * 60 * 1000);
+  })();
 }

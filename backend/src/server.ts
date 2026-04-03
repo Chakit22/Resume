@@ -30,6 +30,7 @@ import {
   getScrapedJobs,
   triggerSeekScrape,
   triggerLinkedInScrape,
+  startJobScheduler,
 } from './jobScraper.js';
 import {
   isTelegramConfigured,
@@ -2150,12 +2151,16 @@ hydrateFromDb();
 ensureScrapedJobsTable();
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 Resume Tailor running on http://localhost:${PORT}`);
+  const appBaseUrl = isProduction
+    ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'resume-8c2b.onrender.com'}`
+    : `http://localhost:${PORT}`;
+  console.log(`\n🚀 Resume Tailor running on ${appBaseUrl}`);
   console.log(`📄 Base resume file: ${RESUME_PATH}`);
   if (isTelegramConfigured()) {
     console.log(`🤖 Telegram bot connected`);
   } else {
     console.log(`⚠️  Telegram not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env)`);
   }
-  console.log(`\nOpen http://localhost:${PORT} in your browser to start.\n`);
+  startJobScheduler(appBaseUrl);
+  console.log(`\nOpen ${appBaseUrl} in your browser to start.\n`);
 });
