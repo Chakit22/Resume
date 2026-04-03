@@ -128,6 +128,21 @@ function isSeniorRole(title: string): boolean {
   return SENIOR_KEYWORDS.some(kw => lower.includes(kw));
 }
 
+// Only keep jobs whose title matches software/tech roles
+const RELEVANT_KEYWORDS = [
+  'software', 'developer', 'engineer', 'frontend', 'front-end', 'front end',
+  'backend', 'back-end', 'back end', 'full stack', 'full-stack', 'fullstack',
+  'devops', 'sre', 'platform', 'cloud', 'data engineer', 'ml engineer',
+  'machine learning', 'ai engineer', 'python', 'node', 'react', 'typescript',
+  'java developer', 'golang', 'rust developer', 'ios developer', 'android developer',
+  'mobile developer', 'web developer', 'api developer', 'solutions engineer',
+];
+
+function isRelevantRole(title: string): boolean {
+  const lower = title.toLowerCase();
+  return RELEVANT_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 // ── Process results ──
 
 export async function processApifyResults(
@@ -153,6 +168,7 @@ export async function processApifyResults(
     }
 
     if (!title || !url) continue;
+    if (!isRelevantRole(title)) continue;
     if (isSeniorRole(title)) continue;
     if (jobExists(url)) continue;
 
