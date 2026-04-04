@@ -32,10 +32,7 @@ import {
   triggerLinkedInScrape,
   startJobScheduler,
 } from './jobScraper.js';
-import {
-  isTelegramConfigured,
-  getUpdates,
-} from './telegram.js';
+import { isTelegramConfigured, getUpdates } from './telegram.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -46,7 +43,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3002;
 const isProduction = process.env.NODE_ENV === 'production';
 const SESSION_SECRET =
   process.env.SESSION_SECRET || 'resume-tailor-secret-change-in-production';
@@ -1047,7 +1044,11 @@ app.post('/api/apify-webhook', async (req, res) => {
         );
         const items = (await apiRes.json()) as any[];
         const appBaseUrl = `${req.protocol}://${req.get('host')}`;
-        const newCount = await processApifyResults(items, source || 'apify', appBaseUrl);
+        const newCount = await processApifyResults(
+          items,
+          source || 'apify',
+          appBaseUrl,
+        );
         res.json({ ok: true, newJobs: newCount });
         return;
       }
@@ -1056,14 +1057,17 @@ app.post('/api/apify-webhook', async (req, res) => {
     }
 
     const appBaseUrl = `${req.protocol}://${req.get('host')}`;
-    const newCount = await processApifyResults(results, source || 'apify', appBaseUrl);
+    const newCount = await processApifyResults(
+      results,
+      source || 'apify',
+      appBaseUrl,
+    );
     res.json({ ok: true, newJobs: newCount });
   } catch (err: any) {
     console.error('[apify-webhook] Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // ---------------------------------------------------------------------------
 // GET /api/scraped-jobs — list scraped jobs
@@ -1310,15 +1314,20 @@ const WEB_UI_HTML = `<!DOCTYPE html>
     .sidebar-overlay { display: block; }
     .main-header { display: flex; }
     .main { margin-left: 0; }
-    .main-inner { padding: 16px; }
-    .preview-comparison { margin-left: 0; width: 100%; padding: 0 16px; }
+    .main-inner { padding: 12px; }
+    .preview-comparison { margin-left: 0; width: 100%; padding: 0 8px; }
     .preview-panels { grid-template-columns: 1fr; }
     .preview-panel iframe, .preview-jd { height: 400px; min-height: 150px; }
     .preview-panel .resize-handle { display: flex; }
-    .actions button { min-width: 100%; }
+    .actions { flex-wrap: wrap; gap: 8px; }
+    .actions button { min-width: calc(50% - 4px); font-size: 13px; padding: 10px 8px; }
     .ats-score { font-size: 36px; }
     .empty-state { padding: 60px 16px; }
     .empty-state h2 { font-size: 18px; }
+    #resume-live-preview { max-height: 60vh; }
+    #resume-preview-frame { height: 500px; }
+    .chat-box { margin-bottom: 12px; }
+    .chat-input input { font-size: 16px; }
   }
 </style>
 </head>
@@ -1396,7 +1405,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
       </div>
 
       <div class="actions">
-        <button onclick="toggleLatex()">View LaTeX</button>
+        <button onclick="toggleLatex()">View Source</button>
         <button class="btn-preview" id="preview-btn" onclick="previewPDF()">Preview PDF</button>
         <button class="btn-cover" id="cover-gen-btn" onclick="generateCoverLetter()">Generate Cover Letter</button>
         <button class="btn-cover" id="cover-preview-btn" onclick="previewCoverLetter()" style="display:none">Preview Cover Letter</button>
@@ -1436,6 +1445,9 @@ const WEB_UI_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
+      <div id="resume-live-preview" style="display:none; margin-bottom:16px; border:1px solid var(--border); border-radius:10px; overflow:auto; background:#fff; max-height:80vh;">
+        <iframe id="resume-preview-frame" style="width:100%; height:700px; border:none;"></iframe>
+      </div>
       <pre class="latex-preview" id="latex-preview"></pre>
     </div>
 
@@ -1715,6 +1727,20 @@ function showSessionResults(id) {
 
   $("latex-preview").textContent = t.tailoredResume || "";
   $("latex-preview").style.display = "none";
+
+  // Show live rendered resume preview
+  const previewFrame = $("resume-preview-frame");
+  const previewContainer = $("resume-live-preview");
+  if (t.tailoredResume && t.tailoredResume.includes("<html")) {
+    previewContainer.style.display = "block";
+    const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+    doc.open();
+    doc.write(t.tailoredResume);
+    doc.close();
+  } else {
+    previewContainer.style.display = "none";
+  }
+
   closePreview();
   closeCoverLetterPreview();
 
@@ -1849,13 +1875,28 @@ async function compilePDF() {
       throw new Error(msg);
     }
     const data = await res.json();
-    const blob = await htmlToPdfBlob(data.html, data.filename || "tailored-resume");
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = (data.filename || "tailored-resume") + ".pdf";
-    a.click();
-    URL.revokeObjectURL(url);
+
+    // Try html2pdf first, fall back to opening HTML in new tab
+    try {
+      const blob = await htmlToPdfBlob(data.html, data.filename || "tailored-resume");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (data.filename || "tailored-resume") + ".pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (pdfErr) {
+      // Fallback: open HTML in new tab (user can Print > Save as PDF)
+      const w = window.open("", "_blank");
+      if (w) {
+        w.document.write(data.html);
+        w.document.close();
+      } else {
+        alert("Pop-up blocked. Please allow pop-ups for this site to download your resume.");
+      }
+    }
   } catch (err) {
     alert("Compile error: " + err.message);
   } finally {
@@ -2159,7 +2200,9 @@ app.listen(PORT, () => {
   if (isTelegramConfigured()) {
     console.log(`🤖 Telegram bot connected`);
   } else {
-    console.log(`⚠️  Telegram not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env)`);
+    console.log(
+      `⚠️  Telegram not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env)`,
+    );
   }
   startJobScheduler(appBaseUrl);
   console.log(`\nOpen ${appBaseUrl} in your browser to start.\n`);
