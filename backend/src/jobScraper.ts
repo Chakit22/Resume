@@ -313,28 +313,15 @@ async function triggerActor(
 export async function triggerSeekScrape(): Promise<void> {
   if (!APIFY_TOKEN) return;
   for (const query of SEARCH_QUERIES) {
-    await triggerActor('websift~seek-job-scraper-pay-per-row', {
+    await triggerActor('websift~seek-job-scraper', {
       searchTerm: query,
       country: 'australia',
       dateRange: 1,
-      maxResults: 20,
+      maxResults: 100,
       sortBy: 'ListedDate',
-      'information-communication-technology': true,
-      'architects': true,
-      'consultants': true,
-      'database-development-administration': true,
       'developers-programmers': true,
       'engineering-software': true,
-      'engineering-network': true,
-      'engineering-hardware': true,
-      'networks-systems-administration': true,
-      'information-communication-technology-product-management-development': true,
-      'programme-project-management': true,
-      'security': true,
-      'team-leaders': true,
-      'testing-quality-assurance': true,
       'web-development-production': true,
-      'information-communication-technology-other': true,
     });
   }
 }
@@ -342,11 +329,11 @@ export async function triggerSeekScrape(): Promise<void> {
 export async function triggerLinkedInScrape(): Promise<void> {
   if (!APIFY_TOKEN) return;
   const urls = SEARCH_QUERIES.map(query =>
-    `https://www.linkedin.com/jobs/search?keywords=${encodeURIComponent(query)}&location=Australia&geoId=101452733&f_JT=F%2CC&f_E=2%2C4&position=1&pageNum=0`,
+    `https://www.linkedin.com/jobs/search?keywords=${encodeURIComponent(query)}&location=Australia&geoId=101452733&f_JT=F%2CC&f_E=2%2C4&f_TPR=r86400&position=1&pageNum=0`,
   );
   await triggerActor('curious_coder~linkedin-jobs-scraper', {
     urls,
-    count: 20,
+    count: 10,
     scrapeCompany: false,
   });
 }
@@ -406,14 +393,14 @@ export function startJobScheduler(appBaseUrl: string) {
   // Poll for completed runs every 2 minutes
   setInterval(() => pollForResults(appBaseUrl), 2 * 60 * 1000);
 
-  // Check every 30 min if it's time to trigger scrapes (8am + 5pm AEST)
+  // Check every 30 min if it's time to trigger scrapes (11pm AEST, once per day)
   setInterval(
     async () => {
       const aestHour = (new Date().getUTCHours() + 10) % 24;
       const minute = new Date().getMinutes();
-      if ((aestHour === 8 || aestHour === 17) && minute < 30) {
+      if (aestHour === 23 && minute < 30) {
         console.log(
-          `[jobScraper] 🔄 Scheduled scrape at ${aestHour}:${minute} AEST`,
+          `[jobScraper] 🔄 Daily scrape at ${aestHour}:${minute} AEST`,
         );
         await triggerSeekScrape();
         await triggerLinkedInScrape();
