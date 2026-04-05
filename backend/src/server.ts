@@ -1876,25 +1876,28 @@ async function compilePDF() {
     }
     const data = await res.json();
 
-    // Try html2pdf first, fall back to opening HTML in new tab
-    try {
-      const blob = await htmlToPdfBlob(data.html, data.filename || "tailored-resume");
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      // Mobile: open HTML in new tab for Share > Print > Save as PDF
+      const blob = new Blob([data.html], { type: "text/html" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = (data.filename || "tailored-resume") + ".pdf";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (pdfErr) {
-      // Fallback: open HTML in new tab (user can Print > Save as PDF)
-      const w = window.open("", "_blank");
-      if (w) {
-        w.document.write(data.html);
-        w.document.close();
-      } else {
-        alert("Pop-up blocked. Please allow pop-ups for this site to download your resume.");
+      window.open(url, "_blank");
+    } else {
+      // Desktop: use html2pdf
+      try {
+        const blob = await htmlToPdfBlob(data.html, data.filename || "tailored-resume");
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = (data.filename || "tailored-resume") + ".pdf";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (pdfErr) {
+        const blob = new Blob([data.html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
       }
     }
   } catch (err) {
