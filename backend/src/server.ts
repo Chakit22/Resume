@@ -43,7 +43,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-const PORT = 3002;
+const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 const SESSION_SECRET =
   process.env.SESSION_SECRET || 'resume-tailor-secret-change-in-production';
