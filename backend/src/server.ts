@@ -1446,8 +1446,11 @@ const WEB_UI_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <div id="resume-live-preview" style="display:none; margin-bottom:16px; border:1px solid var(--border); border-radius:10px; overflow:auto; background:#fff; max-height:80vh;">
-        <iframe id="resume-preview-frame" style="width:100%; height:700px; border:none;"></iframe>
+      <div id="resume-live-preview" style="display:none; margin-bottom:16px;">
+        <button id="download-resume-btn" onclick="downloadResume()" style="width:100%; padding:14px; font-size:16px; font-weight:700; background:#2563eb; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px;">Download Resume</button>
+        <div style="border:1px solid var(--border); border-radius:10px; overflow:auto; background:#fff; max-height:80vh;">
+          <iframe id="resume-preview-frame" style="width:100%; height:700px; border:none;"></iframe>
+        </div>
       </div>
       <pre class="latex-preview" id="latex-preview"></pre>
     </div>
@@ -1844,6 +1847,20 @@ async function sendChat() {
 }
 
 // ── Actions ──
+
+function downloadResume() {
+  if (!activeId || !store[activeId] || !store[activeId].tailoredResume) return;
+  const html = store[activeId].tailoredResume;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (store[activeId].label || "tailored-resume").replace(/[^a-zA-Z0-9\\s\\-_]/g, "").replace(/\\s+/g, "-") + ".html";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 function approveResume() {
   if (!activeId || !store[activeId]) return;
