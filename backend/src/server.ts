@@ -1447,7 +1447,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
       </div>
 
       <div id="resume-live-preview" style="display:none; margin-bottom:16px;">
-        <button id="download-resume-btn" onclick="downloadResume()" style="width:100%; padding:14px; font-size:16px; font-weight:700; background:#2563eb; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px;">Download Resume</button>
+        <button id="download-resume-btn" onclick="downloadPDF()" style="width:100%; padding:14px; font-size:16px; font-weight:700; background:#2563eb; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px;">Download PDF</button>
         <div style="border:1px solid var(--border); border-radius:10px; overflow:auto; background:#fff; max-height:80vh;">
           <iframe id="resume-preview-frame" style="width:100%; height:700px; border:none;"></iframe>
         </div>
@@ -1848,20 +1848,6 @@ async function sendChat() {
 
 // ── Actions ──
 
-function downloadResume() {
-  if (!activeId || !store[activeId] || !store[activeId].tailoredResume) return;
-  const html = store[activeId].tailoredResume;
-  const blob = new Blob([html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = (store[activeId].label || "tailored-resume").replace(/[^a-zA-Z0-9\\s\\-_]/g, "").replace(/\\s+/g, "-") + ".html";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 function approveResume() {
   if (!activeId || !store[activeId]) return;
   store[activeId].approved = true;
@@ -1869,62 +1855,66 @@ function approveResume() {
   $("compile-btn").style.display = "";
   const banner = $("status-banner");
   banner.className = "status-banner approved";
-  banner.textContent = "Resume approved. You can now compile to PDF.";
+  banner.textContent = "Resume approved.";
   banner.style.display = "block";
 }
 
-async function compilePDF() {
-  if (!activeId || !store[activeId]) return;
-  const btn = $("compile-btn");
-  btn.textContent = "Compiling...";
-  btn.disabled = true;
+async function downloadPDF() {
+  if (!activeId || !store[activeId] || !store[activeId].tailoredResume) return;
+  const btn = $("download-resume-btn");
+  if (btn) { btn.textContent = "Generating PDF..."; btn.disabled = true; }
   try {
-    const res = await apiFetch("/compile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: activeId, tailoredResume: store[activeId].tailoredResume }),
-    });
-    if (!res.ok) {
-      let msg = "Compilation failed";
-      try {
-        const err = await res.json();
-        msg = (err.error || msg) + (err.details ? ("\\n\\n" + err.details) : "");
-      } catch { msg = await res.text() || msg; }
-      throw new Error(msg);
-    }
-    const data = await res.json();
+    const html = store[activeId].tailoredResume;
+    const filename = (store[activeId].label || "tailored-resume").replace(/[^a-zA-Z0-9\\s\\-_]/g, "").replace(/\\s+/g, "-");
 
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      // Mobile: open HTML in new tab for Share > Print > Save as PDF
-      const blob = new Blob([data.html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-    } else {
-      // Desktop: use html2pdf
+    // Use the iframe content directly — it's already rendered
+    const frame = $("resume-preview-frame");
+    const pageEl = frame && frame.contentDocument ? frame.contentDocument.querySelector(".page") || frame.contentDocument.body : null;
+
+    if (pageEl && typeof html2pdf !== "undefined") {
+      const blob = await html2pdf().set({
+        margin: 0,
+        filename: filename + ".pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+      }).from(pageEl).outputPdf("blob");
+
+      // Try download, fall back to opening
       try {
-        const blob = await htmlToPdfBlob(data.html, data.filename || "tailored-resume");
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = (data.filename || "tailored-resume") + ".pdf";
+        a.download = filename + ".pdf";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (pdfErr) {
-        const blob = new Blob([data.html], { type: "text/html" });
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch {
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
       }
+    } else {
+      // Fallback: open HTML in new tab
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
     }
   } catch (err) {
-    alert("Compile error: " + err.message);
+    // Ultimate fallback: just open the HTML
+    try {
+      const html = store[activeId].tailoredResume;
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch { alert("Download failed: " + err.message); }
   } finally {
-    btn.textContent = "Download Resume";
-    btn.disabled = false;
+    if (btn) { btn.textContent = "Download PDF"; btn.disabled = false; }
   }
 }
+
+// Keep compilePDF as alias for the old button
+async function compilePDF() { return downloadPDF(); }
 
 function toggleLatex() {
   const el = $("latex-preview");
