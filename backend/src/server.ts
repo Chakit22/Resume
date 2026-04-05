@@ -1247,7 +1247,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
   .actions button:hover { background: var(--bg-input); }
   .btn-approve { background: #059669 !important; border-color: #059669 !important; color: #fff !important; }
   .btn-approve:hover { background: #047857 !important; }
-  .btn-compile { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; display: none; }
+  .btn-compile { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; display: none; order: -1; }
   .btn-compile:hover { background: var(--accent-hover) !important; }
   .btn-compile:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-preview { background: #0ea5e9 !important; border-color: #0ea5e9 !important; color: #fff !important; }
@@ -1321,6 +1321,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
     .preview-panel .resize-handle { display: flex; }
     .actions { flex-wrap: wrap; gap: 8px; }
     .actions button { min-width: calc(50% - 4px); font-size: 13px; padding: 10px 8px; }
+    .btn-compile { min-width: 100% !important; font-size: 16px !important; padding: 14px !important; }
     .ats-score { font-size: 36px; }
     .empty-state { padding: 60px 16px; }
     .empty-state h2 { font-size: 18px; }
@@ -1413,7 +1414,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
         <button class="btn-cover" id="cover-download-pdf-btn" onclick="downloadCoverLetterAs('pdf')" style="display:none">Download as PDF</button>
         <button class="btn-cover" id="cover-download-docx-btn" onclick="downloadCoverLetterAs('docx')" style="display:none">Download as DOCX</button>
         <button class="btn-approve" id="approve-btn" onclick="approveResume()">Approve Resume</button>
-        <button class="btn-compile" id="compile-btn" onclick="compilePDF()">Compile PDF</button>
+        <button class="btn-compile" id="compile-btn" onclick="compilePDF()">Download Resume</button>
       </div>
 
       <div class="cover-letter-preview" id="cover-letter-preview">
@@ -1903,7 +1904,7 @@ async function compilePDF() {
   } catch (err) {
     alert("Compile error: " + err.message);
   } finally {
-    btn.textContent = "Compile PDF";
+    btn.textContent = "Download Resume";
     btn.disabled = false;
   }
 }
