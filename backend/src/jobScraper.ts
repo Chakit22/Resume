@@ -409,12 +409,5 @@ export function startJobScheduler(appBaseUrl: string) {
     30 * 60 * 1000,
   );
 
-  // Initial scrape on startup
-  console.log('[jobScraper] 🚀 Scheduler started. Running initial scrape...');
-  (async () => {
-    await triggerSeekScrape();
-    await triggerLinkedInScrape();
-    // First poll after 2 min
-    setTimeout(() => pollForResults(appBaseUrl), 2 * 60 * 1000);
-  })();
+  console.log('[jobScraper] 🚀 Scheduler started. Daily scrape at 11pm AEST. Use /api/trigger-scrape for manual runs.');
 }

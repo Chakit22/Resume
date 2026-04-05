@@ -2191,15 +2191,18 @@ init();
 </body>
 </html>`;
 
-hydrateFromDb();
-ensureScrapedJobsTable();
-
+// Start server FIRST so Render detects the port, then init DB + scheduler
 app.listen(PORT, () => {
   const appBaseUrl = isProduction
     ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'resume-8c2b.onrender.com'}`
     : `http://localhost:${PORT}`;
   console.log(`\n🚀 Resume Tailor running on ${appBaseUrl}`);
   console.log(`📄 Base resume file: ${RESUME_PATH}`);
+
+  // Init DB and scheduler after port is open
+  hydrateFromDb();
+  ensureScrapedJobsTable();
+
   if (isTelegramConfigured()) {
     console.log(`🤖 Telegram bot connected`);
   } else {
