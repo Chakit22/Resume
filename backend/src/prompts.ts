@@ -69,7 +69,7 @@ WHAT TO CHANGE:
 - Bullet text (weave in missing JD keywords where truthful)
 - Technical Skills rows (prioritize JD tech)
 - Tagline (per rules above)
-- Summary text (align with JD role, keep to 2 lines max)
+- Summary text (align with JD role, strictly 2 lines max — one short sentence about experience, one about skills)
 - May reorder Experience/Project entries for relevance
 
 === END RULES ===
