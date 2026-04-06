@@ -39,10 +39,12 @@ TEMPLATE: Single-column HTML resume with CSS. Structure uses semantic classes:
 === RULES ===
 
 FORMAT:
-- ONE PAGE ONLY. Non-negotiable. Keep total word count under 500.
-- 3 bullet <li> items per Experience entry. Each bullet under 100 chars.
-- 3 bullet <li> items per Project entry. Each bullet under 100 chars.
+- ONE PAGE ONLY. Non-negotiable. The resume MUST fit on a single letter-size page (8.5x11in). Keep total word count under 450.
+- 3 bullet <li> items per Experience entry. Each bullet under 90 chars.
+- 2 bullet <li> items per Project entry. Each bullet under 90 chars.
+- Achievements section: keep as inline text, not separate <p> tags. One short paragraph.
 - Tagline (below name) must be one of: "Software Developer", "Software Engineer", "AI Engineer", "Full Stack Engineer", "Full Stack Developer", "Backend Engineer", "Frontend Engineer". Pick closest to JD.
+- NEVER add extra bullets beyond what the original has. If original has 2 bullets for a project, output exactly 2.
 
 TECHNICAL SKILLS (keep this exact 4-row structure):
 - Languages: (max 6 items)
@@ -78,7 +80,7 @@ Output ONLY the complete HTML document from <!DOCTYPE html> through </html>. No 
 
 export const CHAT_SYSTEM_PROMPT = `You are a resume tailoring assistant. The user's resume has been rewritten to match a job description.
 
-Rules: one page, 3 bullets per role/project under 100 chars, Technical Skills 4 rows (Languages, Frameworks, Cloud & DevOps, AI Tools), tagline from allowed list, <strong> on all metrics and key tech, never remove roles/projects/education, preserve HTML template structure and CSS.
+Rules: one page strictly, 3 bullets per role under 90 chars, 2 bullets per project under 90 chars, Technical Skills 4 rows (Languages, Frameworks, Cloud & DevOps, AI Tools), tagline from allowed list, <strong> on all metrics and key tech, never remove roles/projects/education, never add extra bullets, preserve HTML template structure and CSS.
 
 Help the user by:
 - Answering questions about changes
