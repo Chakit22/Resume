@@ -390,11 +390,48 @@ async function doneNode(
     state.messages?.length ?? 0,
   );
 
+  // Calculate post-tailoring ATS score
+  let postScore = '';
+  let updatedAts = state.atsAnalysis;
+  try {
+    let raw = state.parsedJD.trim();
+    raw = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+    const jd = JSON.parse(raw);
+    const allKeywords = [
+      ...(jd.primaryKeywords || []),
+      ...(jd.secondaryKeywords || []),
+      ...(jd.implicitSkills || []),
+    ];
+    const tailoredLower = (state.tailoredResume || '').toLowerCase();
+    const baseLower = (state.baseResume || '').toLowerCase();
+
+    const baseMatched = allKeywords.filter(kw => baseLower.includes(kw.toLowerCase()));
+    const tailoredMatched = allKeywords.filter(kw => tailoredLower.includes(kw.toLowerCase()));
+    const tailoredMissing = allKeywords.filter(kw => !tailoredLower.includes(kw.toLowerCase()));
+    const total = allKeywords.length || 1;
+    const basePercent = Math.round((baseMatched.length / total) * 100);
+    const tailoredPercent = Math.round((tailoredMatched.length / total) * 100);
+
+    postScore = `\n\nATS Score: ${basePercent}% → ${tailoredPercent}% (${tailoredMatched.length}/${total} keywords matched).`;
+    console.log(`   [done] ATS: base=${basePercent}%, tailored=${tailoredPercent}%`);
+
+    // Update atsAnalysis with post-tailoring score
+    let atsObj: any = {};
+    try { atsObj = JSON.parse(state.atsAnalysis); } catch {}
+    atsObj.baseScore = basePercent;
+    atsObj.score = tailoredPercent;
+    atsObj.matched = tailoredMatched;
+    atsObj.missing = tailoredMissing;
+    atsObj.totalKeywords = total;
+    updatedAts = JSON.stringify(atsObj, null, 2);
+  } catch {}
+
   const finalMsg =
-    `I've tailored your resume for this role. ` +
+    `I've tailored your resume for this role.${postScore} ` +
     `You can ask me questions about the changes, request specific edits, or say "compile" to generate the PDF.`;
   console.log('   [done] OUT: adding final AIMessage, messages +1');
   return {
+    atsAnalysis: updatedAts,
     messages: [new AIMessage(finalMsg)],
   };
 }

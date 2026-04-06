@@ -1784,7 +1784,7 @@ function renderATS(ats) {
   const missingTags = (ats.missing || []).map(k => '<span class="tag tag-missing">' + esc(k) + '</span>').join("");
   card.innerHTML =
     (title ? '<div class="ats-job-title">' + esc(title) + (company ? ' at ' + esc(company) : '') + '</div>' : '') +
-    '<div class="ats-header"><span class="ats-score">' + (ats.score ?? 0) + '%</span><span class="ats-score-label">ATS Match</span></div>' +
+    '<div class="ats-header"><span class="ats-score">' + (ats.score ?? 0) + '%</span><span class="ats-score-label">' + (ats.baseScore != null ? 'After Tailoring (was ' + ats.baseScore + '%)' : 'ATS Match') + '</span></div>' +
     '<div class="keywords-row">' +
     '<div class="keywords-group"><h4>Matched</h4><div>' + (matchedTags || '<span class="tag tag-matched">none</span>') + '</div></div>' +
     '<div class="keywords-group"><h4>Missing</h4><div>' + (missingTags || '<span class="tag tag-missing">none</span>') + '</div></div>' +
