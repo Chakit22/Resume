@@ -1,413 +1,529 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chakit Bhandari - Resume</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<style>
-  @page {
-    size: letter;
-    margin: 0;
-  }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chakit Bhandari - Resume</title>
+    <style>
+      @page {
+        size: letter;
+        margin: 0;
+      }
 
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-  body {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 10pt;
-    color: #2d2d2d;
-    line-height: 1.25;
-    -webkit-font-smoothing: antialiased;
-  }
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10pt;
+        color: #2d2d2d;
+        line-height: 1.25;
+        -webkit-font-smoothing: antialiased;
+      }
 
-  .page {
-    width: 8.5in;
-    height: 11in;
-    max-height: 11in;
-    padding: 0.3in 0.45in;
-    margin: 0 auto;
-    background: white;
-    overflow: hidden;
-  }
+      .page {
+        width: 8.5in;
+        height: 11in;
+        max-height: 11in;
+        padding: 0.3in 0.45in;
+        margin: 0 auto;
+        background: white;
+        overflow: hidden;
+      }
 
-  @media print {
-    .page {
-      width: 100%;
-      padding: 0.3in 0.45in;
-      margin: 0;
-      box-shadow: none;
-    }
-  }
+      @media print {
+        .page {
+          width: 100%;
+          padding: 0.3in 0.45in;
+          margin: 0;
+          box-shadow: none;
+        }
+      }
 
-  /* ── Header ── */
-  .header {
-    text-align: center;
-    margin-bottom: 5pt;
-  }
+      /* ── Header ── */
+      .header {
+        text-align: center;
+        margin-bottom: 5pt;
+      }
 
-  .header h1 {
-    font-size: 18pt;
-    font-weight: 900;
-    letter-spacing: 0.5pt;
-    margin-bottom: 1pt;
-    color: #000;
-  }
+      .header h1 {
+        font-size: 18pt;
+        font-weight: 900;
+        letter-spacing: 0.5pt;
+        margin-bottom: 1pt;
+        color: #000;
+      }
 
-  .header .tagline {
-    font-size: 10pt;
-    color: #444;
-    margin-bottom: 2pt;
-  }
+      .header .tagline {
+        font-size: 10pt;
+        color: #444;
+        margin-bottom: 2pt;
+      }
 
-  .header .contact {
-    font-size: 9pt;
-    color: #555;
-  }
+      .header .contact {
+        font-size: 9pt;
+        color: #555;
+      }
 
-  .header .contact a {
-    color: #555;
-    text-decoration: underline;
-  }
+      .header .contact a {
+        color: #000;
+        text-decoration: underline;
+      }
 
-  .header .contact .sep {
-    margin: 0 3pt;
-  }
+      .header .contact .sep {
+        margin: 0 3pt;
+      }
 
-  .header .contact i {
-    margin-right: 2pt;
-    width: 11pt;
-    text-align: center;
-  }
+      /* ── Section ── */
+      .section {
+        margin-bottom: 4pt;
+      }
 
-  /* ── Section ── */
-  .section {
-    margin-bottom: 4pt;
-  }
+      .section-title {
+        font-size: 11pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3pt;
+        border-bottom: 1pt solid #000;
+        padding-bottom: 1pt;
+        margin-bottom: 3pt;
+        color: #000;
+      }
 
-  .section-title {
-    font-size: 11pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3pt;
-    border-bottom: 1pt solid #000;
-    padding-bottom: 1pt;
-    margin-bottom: 3pt;
-    color: #000;
-  }
+      /* ── Experience / Education entries ── */
+      .entry {
+        margin-bottom: 4pt;
+      }
 
-  /* ── Experience / Education entries ── */
-  .entry {
-    margin-bottom: 4pt;
-  }
+      .entry-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
 
-  .entry-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
+      .entry-title {
+        font-size: 10pt;
+        font-weight: 700;
+      }
 
-  .entry-title {
-    font-size: 10pt;
-    font-weight: 700;
-  }
+      .entry-date {
+        font-size: 9.5pt;
+        font-weight: 700;
+        white-space: nowrap;
+      }
 
-  .entry-date {
-    font-size: 9.5pt;
-    font-weight: 700;
-    white-space: nowrap;
-  }
+      .entry-subtitle {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
 
-  .entry-subtitle {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
+      .entry-company {
+        font-size: 9.5pt;
+        font-style: italic;
+        color: #444;
+      }
 
-  .entry-company {
-    font-size: 9.5pt;
-    font-style: italic;
-    color: #444;
-  }
+      .entry-location {
+        font-size: 9pt;
+        font-style: italic;
+        color: #444;
+        white-space: nowrap;
+      }
 
-  .entry-location {
-    font-size: 9pt;
-    font-style: italic;
-    color: #444;
-    white-space: nowrap;
-  }
+      /* ── Project entries ── */
+      .project-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
 
-  /* ── Project entries ── */
-  .project-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
+      .project-name {
+        font-size: 10pt;
+        font-weight: 700;
+      }
 
-  .project-name {
-    font-size: 10pt;
-    font-weight: 700;
-  }
+      .project-tech {
+        font-style: italic;
+        color: #555;
+        font-size: 9pt;
+      }
 
-  .project-tech {
-    font-style: italic;
-    color: #555;
-    font-size: 9pt;
-  }
+      .project-date {
+        font-size: 9pt;
+        font-weight: 700;
+        white-space: nowrap;
+      }
 
-  .project-date {
-    font-size: 9pt;
-    font-weight: 700;
-    white-space: nowrap;
-  }
+      .project-link {
+        font-size: 9pt;
+        font-style: normal;
+        color: #000;
+        text-decoration: underline;
+      }
 
-  .project-link {
-    font-size: 9pt;
-    font-style: normal;
-    color: #555;
-    text-decoration: underline;
-  }
+      /* ── Bullet lists ── */
+      .bullets {
+        list-style: disc;
+        padding-left: 15pt;
+        margin-top: 1pt;
+        margin-bottom: 0;
+      }
 
-  /* ── Bullet lists ── */
-  .bullets {
-    list-style: disc;
-    padding-left: 15pt;
-    margin-top: 1pt;
-    margin-bottom: 0;
-  }
+      .bullets li {
+        font-size: 9.5pt;
+        margin-bottom: 0;
+        line-height: 1.3;
+        color: #2d2d2d;
+      }
 
-  .bullets li {
-    font-size: 9.5pt;
-    margin-bottom: 0;
-    line-height: 1.3;
-    color: #2d2d2d;
-  }
+      /* ── Technical Skills ── */
+      .skills-table {
+        width: 100%;
+        font-size: 9.5pt;
+      }
 
-  /* ── Technical Skills ── */
-  .skills-table {
-    width: 100%;
-    font-size: 9.5pt;
-  }
+      .skills-table td {
+        padding: 0.5pt 0;
+        vertical-align: top;
+      }
 
-  .skills-table td {
-    padding: 0.5pt 0;
-    vertical-align: top;
-  }
+      .skills-table .label {
+        font-weight: 700;
+        white-space: nowrap;
+        padding-right: 4pt;
+        width: 95pt;
+      }
 
-  .skills-table .label {
-    font-weight: 700;
-    white-space: nowrap;
-    padding-right: 4pt;
-    width: 95pt;
-  }
+      /* ── Summary ── */
+      .summary {
+        font-size: 9.5pt;
+        line-height: 1.3;
+        color: #2d2d2d;
+      }
 
-  /* ── Summary ── */
-  .summary {
-    font-size: 9.5pt;
-    line-height: 1.3;
-    color: #2d2d2d;
-  }
+      /* ── Achievements ── */
+      .achievements {
+        font-size: 9.5pt;
+        line-height: 1.3;
+      }
 
-  /* ── Achievements ── */
-  .achievements {
-    font-size: 9.5pt;
-    line-height: 1.3;
-  }
+      /* ── Bold emphasis ── */
+      strong {
+        font-weight: 700;
+      }
 
-  /* ── Bold emphasis ── */
-  strong {
-    font-weight: 700;
-  }
+      /* ── Screen preview shadow ── */
+      @media screen {
+        body {
+          background: #e8e8e8;
+          padding: 20px 0;
+        }
+        .page {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          border-radius: 2px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <!-- HEADER -->
+      <div class="header">
+        <h1>Chakit Bhandari</h1>
+        <div class="tagline">AI Full Stack Developer</div>
+        <div class="contact">
+          +61 434 057 320
+          <span class="sep">|</span>
+          <a href="mailto:chakitbhandari22@gmail.com" target="_blank"
+            >chakitbhandari22@gmail.com</a
+          >
+          <span class="sep">|</span>
+          <a href="https://www.linkedin.com/in/chakit-bhandari" target="_blank"
+            >linkedin.com/in/chakit-bhandari</a
+          >
+        </div>
+        <div class="contact" style="margin-top: 1pt">
+          <a href="https://github.com/Chakit22" target="_blank"
+            >github.com/Chakit22</a
+          >
+          <span class="sep">|</span>
+          <a
+            href="https://portfolio-chakit22s-projects.vercel.app/"
+            target="_blank"
+            >Portfolio</a
+          >
+        </div>
+      </div>
 
-  /* ── Screen preview shadow ── */
-  @media screen {
-    body {
-      background: #e8e8e8;
-      padding: 20px 0;
-    }
-    .page {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      border-radius: 2px;
-    }
-  }
-</style>
-</head>
-<body>
-<div class="page">
+      <!-- SUMMARY -->
+      <div class="section">
+        <div class="section-title">Summary</div>
+        <div class="summary">
+          AI Full Stack Developer passionate about building intelligent,
+          scalable solutions. I create software that makes a real impact.
+          Proficient in TypeScript, Python, React, Node.js, and AWS.
+        </div>
+      </div>
 
-  <!-- HEADER -->
-  <div class="header">
-    <h1>Chakit Bhandari</h1>
-    <div class="tagline">AI Full Stack Developer</div>
-    <div class="contact">
-      <i class="fas fa-phone"></i> +61 434 057 320
-      <span class="sep">|</span>
-      <a href="mailto:chakitbhandari22@gmail.com" target="_blank"><i class="fas fa-envelope"></i> chakitbhandari22@gmail.com</a>
-      <span class="sep">|</span>
-      <a href="https://www.linkedin.com/in/chakit-bhandari" target="_blank"><i class="fab fa-linkedin"></i> LinkedIn</a>
+      <!-- EXPERIENCE -->
+      <div class="section">
+        <div class="section-title">Experience</div>
+
+        <div class="entry">
+          <div class="entry-header">
+            <span class="entry-title">AI Engineer</span>
+            <span class="entry-date">Aug 2025 – Present</span>
+          </div>
+          <div class="entry-subtitle">
+            <span class="entry-company">Heya Voice AI</span>
+            <span class="entry-location">Melbourne, VIC</span>
+          </div>
+          <ul class="bullets">
+            <li>
+              Built automation systems, internal dashboards, and operational
+              tooling to support AI voice agent deployments, improving team
+              productivity and reducing manual handling by <strong>80%</strong>.
+            </li>
+            <li>
+              Automated end-to-end agent provisioning pipeline, scraping client
+              websites, configuring AI agents, and provisioning telephony/phone
+              numbers, reducing manual setup time by <strong>70%</strong>.
+            </li>
+          </ul>
+        </div>
+
+        <div class="entry">
+          <div class="entry-header">
+            <span class="entry-title">Software Developer</span>
+            <span class="entry-date">Jul 2025 – Oct 2025</span>
+          </div>
+          <div class="entry-subtitle">
+            <span class="entry-company"
+              >Digital Asset Custody Solutions Pty Ltd.</span
+            >
+            <span class="entry-location">Melbourne, VIC</span>
+          </div>
+          <ul class="bullets">
+            <li>
+              Designed a crypto pricing engine on <strong>AWS</strong> for
+              real-time pricing of <strong>20+</strong> digital assets.
+            </li>
+            <li>
+              Integrated <strong>5+</strong> market data providers for reliable,
+              low-latency pricing data.
+            </li>
+            <li>
+              Built serverless pipelines with API Gateway,
+              <strong>Lambda</strong>, and RDS, cutting costs by
+              <strong>45%</strong>.
+            </li>
+          </ul>
+        </div>
+
+        <div class="entry">
+          <div class="entry-header">
+            <span class="entry-title">Software Engineer</span>
+            <span class="entry-date">Nov 2024 – Feb 2025</span>
+          </div>
+          <div class="entry-subtitle">
+            <span class="entry-company">Film Never Die</span>
+            <span class="entry-location">Melbourne, VIC</span>
+          </div>
+          <ul class="bullets">
+            <li>
+              Shipped a SaaS image platform saving clients up to
+              <strong>$30,000</strong> annually.
+            </li>
+            <li>
+              Built a mobile app with <strong>Flutter</strong> for fast image
+              access, replacing Dropbox.
+            </li>
+            <li>
+              Served images (<strong>5–50MB</strong>) via
+              <strong>CloudFront</strong> CDN for efficient delivery.
+            </li>
+          </ul>
+        </div>
+
+        <div class="entry">
+          <div class="entry-header">
+            <span class="entry-title">Software Developer</span>
+            <span class="entry-date">Jun 2023 – Aug 2023</span>
+          </div>
+          <div class="entry-subtitle">
+            <span class="entry-company">Fresh Prints</span>
+            <span class="entry-location">Remote</span>
+          </div>
+          <ul class="bullets">
+            <li>
+              Developed Customer Portal features enabling direct client
+              ordering.
+            </li>
+            <li>
+              Built a PDF extraction API on serverless
+              <strong>AWS Lambda</strong>, reducing costs by
+              <strong>96%</strong>.
+            </li>
+            <li>
+              Containerized services with <strong>Docker</strong> to improve
+              scalability.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- PROJECTS -->
+      <div class="section">
+        <div class="section-title">Projects</div>
+
+        <div class="entry">
+          <div class="project-header">
+            <span
+              ><span class="project-name">Medico-Legal RAG System</span>
+              <span class="project-tech">| LangGraph, FastAPI, Python |</span>
+              <a
+                href="https://github.com/Chakit22/medico-legal-rag"
+                target="_blank"
+                class="project-link"
+                >GitHub</a
+              ></span
+            >
+            <span class="project-date">2025</span>
+          </div>
+          <ul class="bullets">
+            <li>
+              Built a RAG pipeline for medico-legal reports using
+              <strong>LangGraph</strong> and <strong>FastAPI</strong>.
+            </li>
+            <li>
+              Reduced irrelevant data retrieval by <strong>75%</strong> via
+              targeted section extraction.
+            </li>
+          </ul>
+        </div>
+
+        <div class="entry">
+          <div class="project-header">
+            <span
+              ><span class="project-name">Atlas – AI Travel Planner</span>
+              <span class="project-tech"
+                >| LangGraph, Gemini, TypeScript |</span
+              >
+              <a
+                href="https://github.com/Chakit22/Travel-Planner"
+                target="_blank"
+                class="project-link"
+                >GitHub</a
+              ></span
+            >
+            <span class="project-date">2025</span>
+          </div>
+          <ul class="bullets">
+            <li>
+              Built a multi-agent travel assistant with
+              <strong>LangGraph</strong> and <strong>Gemini 2.5 Flash</strong>.
+            </li>
+            <li>
+              Integrated <strong>SerpApi</strong>,
+              <strong>OpenWeatherMap</strong>, and
+              <strong>AviationStack</strong> for live data.
+            </li>
+          </ul>
+        </div>
+
+        <div class="entry">
+          <div class="project-header">
+            <span
+              ><span class="project-name"
+                >StaffIQ – Smart Academic Hiring Platform</span
+              >
+              <span class="project-tech">| Next.js, GraphQL, Gemini AI |</span>
+              <a
+                href="https://github.com/Chakit22/TeachTeam"
+                target="_blank"
+                class="project-link"
+                >GitHub</a
+              ></span
+            >
+            <span class="project-date">2025</span>
+          </div>
+          <ul class="bullets">
+            <li>
+              Built an AI-powered recruitment platform with role-based auth and
+              <strong>Gemini AI</strong> candidate ranking.
+            </li>
+            <li>
+              Deployed <strong>GraphQL</strong> admin dashboard with
+              <strong>TypeORM</strong> and MySQL for reporting.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- TECHNICAL SKILLS -->
+      <div class="section">
+        <div class="section-title">Technical Skills</div>
+        <table class="skills-table">
+          <tr>
+            <td class="label">Languages:</td>
+            <td>TypeScript, Python, JavaScript</td>
+          </tr>
+          <tr>
+            <td class="label">Frameworks:</td>
+            <td>
+              React, Next.js, Node.js, Express, FastAPI, Flutter, LangChain,
+              LangGraph, GraphQL, MCP, RAG
+            </td>
+          </tr>
+          <tr>
+            <td class="label">Cloud & DevOps:</td>
+            <td>
+              AWS (Lambda, API Gateway, RDS, CloudFront), Docker, Vercel, n8n
+            </td>
+          </tr>
+          <tr>
+            <td class="label">AI Tools:</td>
+            <td>Claude Code, Cursor, v0, ChatGPT, GitHub Copilot</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- EDUCATION -->
+      <div class="section">
+        <div class="section-title">Education</div>
+        <div class="entry" style="margin-bottom: 0">
+          <div class="entry-header">
+            <span class="entry-title">Master's of Information Technology</span>
+            <span class="entry-date">2024 – 2025</span>
+          </div>
+          <div class="entry-subtitle">
+            <span class="entry-company">RMIT University</span>
+            <span class="entry-location">Melbourne, VIC</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACHIEVEMENTS -->
+      <div class="section" style="margin-bottom: 0">
+        <div class="section-title">Achievements</div>
+        <ul class="bullets">
+          <li>
+            <strong>1st Place</strong> – AI Agents Hackathon; presented at
+            <strong>Microsoft Office, Melbourne</strong>.
+          </li>
+          <li>
+            <strong>3rd Rank</strong> out of <strong>200</strong> participants
+            in <strong>O(NlogN)</strong> University coding event.
+          </li>
+          <li>
+            LeetCode Knight (Rating: <strong>1944</strong>), 3-star CodeChef.
+          </li>
+        </ul>
+      </div>
     </div>
-    <div class="contact" style="margin-top:1pt;">
-      <a href="https://github.com/Chakit22" target="_blank"><i class="fab fa-github"></i> GitHub</a>
-      <span class="sep">|</span>
-      <a href="https://portfolio-hiw8r4a1n-chakit22s-projects.vercel.app/" target="_blank"><i class="fas fa-globe"></i> Portfolio</a>
-    </div>
-  </div>
-
-  <!-- SUMMARY -->
-  <div class="section">
-    <div class="section-title">Summary</div>
-    <div class="summary">
-      Full Stack Developer experienced in LLM-powered voice automation, serverless AWS architectures, and multi-agent AI systems. Proficient in TypeScript, Python, React, and Node.js. LeetCode Knight with <strong>1000+</strong> problems solved.
-    </div>
-  </div>
-
-  <!-- EXPERIENCE -->
-  <div class="section">
-    <div class="section-title">Experience</div>
-
-    <div class="entry">
-      <div class="entry-header">
-        <span class="entry-title">AI Engineer</span>
-        <span class="entry-date">Aug 2025 – Present</span>
-      </div>
-      <div class="entry-subtitle">
-        <span class="entry-company">Heya Voice AI</span>
-        <span class="entry-location">Melbourne, VIC</span>
-      </div>
-      <ul class="bullets">
-        <li>Built AI voice automation using LLM orchestration, reducing manual call handling by <strong>80%</strong>.</li>
-        <li>Developed internal CLI tool for deploying and configuring voice agents.</li>
-        <li>Maintained complex <strong>n8n</strong> workflows enabling end-to-end automation.</li>
-      </ul>
-    </div>
-
-    <div class="entry">
-      <div class="entry-header">
-        <span class="entry-title">Software Developer</span>
-        <span class="entry-date">Jul 2025 – Oct 2025</span>
-      </div>
-      <div class="entry-subtitle">
-        <span class="entry-company">Digital Asset Custody Solutions Pty Ltd.</span>
-        <span class="entry-location">Melbourne, VIC</span>
-      </div>
-      <ul class="bullets">
-        <li>Designed a crypto pricing engine on <strong>AWS</strong> for real-time pricing of <strong>20+</strong> digital assets.</li>
-        <li>Integrated <strong>5+</strong> market data providers for reliable, low-latency pricing data.</li>
-        <li>Built serverless pipelines with API Gateway, <strong>Lambda</strong>, and RDS, cutting costs by <strong>45%</strong>.</li>
-      </ul>
-    </div>
-
-    <div class="entry">
-      <div class="entry-header">
-        <span class="entry-title">Software Engineer</span>
-        <span class="entry-date">Nov 2024 – Feb 2025</span>
-      </div>
-      <div class="entry-subtitle">
-        <span class="entry-company">Film Never Die</span>
-        <span class="entry-location">Melbourne, VIC</span>
-      </div>
-      <ul class="bullets">
-        <li>Shipped a SaaS image platform saving clients up to <strong>$30,000</strong> annually.</li>
-        <li>Built a mobile app with <strong>Flutter</strong> for fast image access, replacing Dropbox.</li>
-        <li>Served images (<strong>5–50MB</strong>) via <strong>CloudFront</strong> CDN for efficient delivery.</li>
-      </ul>
-    </div>
-
-    <div class="entry">
-      <div class="entry-header">
-        <span class="entry-title">Software Developer</span>
-        <span class="entry-date">Jun 2023 – Aug 2023</span>
-      </div>
-      <div class="entry-subtitle">
-        <span class="entry-company">Fresh Prints</span>
-        <span class="entry-location">Remote</span>
-      </div>
-      <ul class="bullets">
-        <li>Developed Customer Portal features enabling direct client ordering.</li>
-        <li>Built a PDF extraction API on serverless <strong>AWS Lambda</strong>, reducing costs by <strong>96%</strong>.</li>
-        <li>Containerized services with <strong>Docker</strong> to improve scalability.</li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- PROJECTS -->
-  <div class="section">
-    <div class="section-title">Projects</div>
-
-    <div class="entry">
-      <div class="project-header">
-        <span><span class="project-name">Medico-Legal RAG System</span> <span class="project-tech">| LangGraph, FastAPI, Python |</span> <a href="https://github.com/Chakit22/medico-legal-rag" target="_blank" class="project-link"><i class="fab fa-github"></i> GitHub</a></span>
-        <span class="project-date">2025</span>
-      </div>
-      <ul class="bullets">
-        <li>Built a RAG pipeline for medico-legal reports using <strong>LangGraph</strong> and <strong>FastAPI</strong>.</li>
-        <li>Reduced irrelevant data retrieval by <strong>75%</strong> via targeted section extraction.</li>
-      </ul>
-    </div>
-
-    <div class="entry">
-      <div class="project-header">
-        <span><span class="project-name">Atlas – AI Travel Planner</span> <span class="project-tech">| LangGraph, Gemini, TypeScript |</span> <a href="https://github.com/Chakit22/Travel-Planner" target="_blank" class="project-link"><i class="fab fa-github"></i> GitHub</a></span>
-        <span class="project-date">2025</span>
-      </div>
-      <ul class="bullets">
-        <li>Built a multi-agent travel assistant with <strong>LangGraph</strong> and <strong>Gemini 2.5 Flash</strong>.</li>
-        <li>Integrated <strong>SerpApi</strong>, <strong>OpenWeatherMap</strong>, and <strong>AviationStack</strong> for live data.</li>
-      </ul>
-    </div>
-
-    <div class="entry">
-      <div class="project-header">
-        <span><span class="project-name">StaffIQ – Tutor Assignment Platform</span> <span class="project-tech">| Next.js, GraphQL, Gemini AI |</span> <a href="https://github.com/Chakit22/TeachTeam" target="_blank" class="project-link"><i class="fab fa-github"></i> GitHub</a></span>
-        <span class="project-date">2025</span>
-      </div>
-      <ul class="bullets">
-        <li>Built a full-stack platform for RMIT with role-based auth and <strong>Gemini AI</strong> ranking.</li>
-        <li>Deployed <strong>GraphQL</strong> admin API with <strong>TypeORM</strong> and MySQL for dashboards.</li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- TECHNICAL SKILLS -->
-  <div class="section">
-    <div class="section-title">Technical Skills</div>
-    <table class="skills-table">
-      <tr><td class="label">Languages:</td><td>TypeScript, Python, JavaScript</td></tr>
-      <tr><td class="label">Frameworks:</td><td>React, Next.js, Node.js, Express, FastAPI, Flutter, LangChain, LangGraph, GraphQL, RAG</td></tr>
-      <tr><td class="label">Cloud & DevOps:</td><td>AWS (Lambda, API Gateway, RDS, CloudFront), Docker, Vercel, n8n</td></tr>
-      <tr><td class="label">AI Tools:</td><td>Claude Code, Cursor, v0, ChatGPT, GitHub Copilot</td></tr>
-    </table>
-  </div>
-
-  <!-- EDUCATION -->
-  <div class="section">
-    <div class="section-title">Education</div>
-    <div class="entry" style="margin-bottom:0">
-      <div class="entry-header">
-        <span class="entry-title">Master's of Information Technology</span>
-        <span class="entry-date">2024 – 2025</span>
-      </div>
-      <div class="entry-subtitle">
-        <span class="entry-company">RMIT University</span>
-        <span class="entry-location">Melbourne, VIC</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ACHIEVEMENTS -->
-  <div class="section" style="margin-bottom:0">
-    <div class="section-title">Achievements</div>
-    <ul class="bullets">
-      <li><strong>1st Place</strong> – AI Agents Hackathon; presented at <strong>Microsoft Office, Melbourne</strong>.</li>
-      <li><strong>3rd Rank</strong> out of <strong>200</strong> participants in <strong>O(NlogN)</strong> University coding event.</li>
-      <li>LeetCode Knight (Rating: <strong>1944</strong>), 3-star CodeChef.</li>
-    </ul>
-  </div>
-
-</div>
-</body>
+  </body>
 </html>

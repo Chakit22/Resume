@@ -66,14 +66,18 @@ Create `.env`:
 ```env
 GOOGLE_API_KEY=your_google_api_key
 PORT=3000
-# Optional: require login (password is hashed with bcrypt)
+# Optional: require login in production only (NODE_ENV=production). Local `npm run dev` and docker-compose ignore it.
 ADMIN_PASSWORD=your_secret_password
 SESSION_SECRET=random_secret_for_cookies
+# Optional: absolute path, or path relative to process cwd — always re-read from disk (overrides bundled resumes/base-resume.tex). Use with a Docker volume so edits on the host are picked up.
+# BASE_RESUME_PATH=/data/base-resume.tex
 ```
 
 ### 3. Base resume
 
 Place your LaTeX resume at `resumes/base-resume.tex`. The app uses `altacv` document class.
+
+**Always the latest on disk:** tailoring, chat, and `/session` reload `base-resume.tex` from that file on each run (in-memory/DB snapshots are not used when the file exists). Set `BASE_RESUME_PATH` if the file lives elsewhere (e.g. a mounted volume in Docker).
 
 ### 4. Run
 
@@ -99,6 +103,15 @@ Open http://localhost:3000
 5. Deploy. The app will be live at `https://your-service.onrender.com`.
 
 **Note:** On Render free tier, the service spins down after 15 min idle (~1 min to wake). SQLite data is ephemeral (lost on redeploy/restart).
+
+### LaTeX / Tectonic on Render
+
+- The **Dockerfile** installs **native** Tectonic per CPU: **amd64** → `x86_64-unknown-linux-gnu`, **arm64** (Apple Silicon) → `aarch64-unknown-linux-musl`. Pre-warm should print `Tectonic pre-warm: OK` when the compile succeeds.
+- **Do not** run `docker run --platform linux/amd64` on Apple Silicon for this app: QEMU emulating amd64 often breaks Tectonic with **`free(): invalid pointer` / Aborted**. Use the default **arm64** image locally; Render stays on **amd64** natively.
+- **HTTP compile** uses a **5-minute** default timeout (`TECTONIC_TIMEOUT_MS`, default `300000`). Older code used 30s, which often failed when Tectonic had to download bundles on a cold filesystem.
+- If the UI still shows “LaTeX compilation failed”, check the **terminal** where `npm run dev` runs: the full Tectonic log is printed. In **development** the failing source is also saved as `resumes/output/debug-failed-compile.tex` (or `debug-failed-compile-base.tex`). Common local causes: **`tectonic` not installed or not on PATH** (install: `brew install tectonic`), or **invalid LaTeX** in the tailored resume from the model (open the debug `.tex` and fix, or use Chat to correct).
+- In the browser **Network** tab, the failed `/compile` response JSON includes a `details` field; the alert now includes it when possible.
+- Render may still terminate very long requests at the **platform** limit; keeping the Docker cache warm avoids multi-minute compiles.
 
 ---
 

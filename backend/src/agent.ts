@@ -9,7 +9,7 @@ import {
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PARSE_JD_PROMPT, REWRITE_RESUME_PROMPT } from './prompts.js';
+import { PARSE_JD_PROMPT, REWRITE_RESUME_PROMPT, RECRUITER_REVIEW_PROMPT } from './prompts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RESUMES_DIR = path.resolve(__dirname, '../resumes');
@@ -52,7 +52,7 @@ let _llm: ChatGoogleGenerativeAI | null = null;
 function getLLM(): ChatGoogleGenerativeAI {
   if (!_llm) {
     _llm = new ChatGoogleGenerativeAI({
-      model: 'gemini-2.5-flash-lite',
+      model: 'gemini-2.5-flash',
       temperature: 0.3,
       maxOutputTokens: 8192,
     });
@@ -426,8 +426,23 @@ async function doneNode(
     updatedAts = JSON.stringify(atsObj, null, 2);
   } catch {}
 
+  // Get recruiter review
+  let recruiterReview = '';
+  try {
+    console.log('   [done] Running recruiter review...');
+    const reviewPrompt = `Here is the tailored resume:\n${state.tailoredResume}\n\nHere is the parsed job description:\n${state.parsedJD}\n\nHere is the ATS analysis:\n${updatedAts}\n\nProvide your recruiter analysis.`;
+    const response = await getLLM().invoke([
+      new SystemMessage(RECRUITER_REVIEW_PROMPT),
+      new HumanMessage(reviewPrompt),
+    ]);
+    recruiterReview = '\n\n' + extractText(response.content);
+    console.log('   [done] Recruiter review generated.');
+  } catch (err) {
+    console.error('   [done] Recruiter review failed:', err);
+  }
+
   const finalMsg =
-    `I've tailored your resume for this role.${postScore} ` +
+    `I've tailored your resume for this role.${postScore}${recruiterReview}\n\n` +
     `You can ask me questions about the changes, request specific edits, or say "compile" to generate the PDF.`;
   console.log('   [done] OUT: adding final AIMessage, messages +1');
   return {

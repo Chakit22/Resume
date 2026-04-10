@@ -1447,7 +1447,7 @@ const WEB_UI_HTML = `<!DOCTYPE html>
       </div>
 
       <div id="resume-live-preview" style="display:none; margin-bottom:16px;">
-        <button id="download-resume-btn" onclick="downloadPDF()" style="width:100%; padding:14px; font-size:16px; font-weight:700; background:#2563eb; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px;">Download PDF</button>
+        <button id="download-resume-btn" onclick="downloadPDF()" style="width:100%; padding:14px; font-size:16px; font-weight:700; background:#2563eb; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px;">Download Resume (PDF)</button>
         <div style="border:1px solid var(--border); border-radius:10px; overflow:auto; background:#fff; max-height:80vh;">
           <iframe id="resume-preview-frame" style="width:100%; height:700px; border:none;"></iframe>
         </div>
@@ -1859,62 +1859,21 @@ function approveResume() {
   banner.style.display = "block";
 }
 
-async function downloadPDF() {
+function downloadPDF() {
   if (!activeId || !store[activeId] || !store[activeId].tailoredResume) return;
-  const btn = $("download-resume-btn");
-  if (btn) { btn.textContent = "Generating PDF..."; btn.disabled = true; }
-  try {
-    const html = store[activeId].tailoredResume;
-    const filename = (store[activeId].label || "tailored-resume").replace(/[^a-zA-Z0-9\\s\\-_]/g, "").replace(/\\s+/g, "-");
-
-    // Use the iframe content directly — it's already rendered
-    const frame = $("resume-preview-frame");
-    const pageEl = frame && frame.contentDocument ? frame.contentDocument.querySelector(".page") || frame.contentDocument.body : null;
-
-    if (pageEl && typeof html2pdf !== "undefined") {
-      const blob = await html2pdf().set({
-        margin: 0,
-        filename: filename + ".pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
-        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-      }).from(pageEl).outputPdf("blob");
-
-      // Try download, fall back to opening
-      try {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename + ".pdf";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-      } catch {
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-      }
-    } else {
-      // Fallback: open HTML in new tab
-      const blob = new Blob([html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-    }
-  } catch (err) {
-    // Ultimate fallback: just open the HTML
-    try {
-      const html = store[activeId].tailoredResume;
-      const blob = new Blob([html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-    } catch { alert("Download failed: " + err.message); }
-  } finally {
-    if (btn) { btn.textContent = "Download PDF"; btn.disabled = false; }
-  }
+  const html = store[activeId].tailoredResume;
+  // Open resume in a new window and trigger print (Save as PDF)
+  const w = window.open("", "_blank");
+  if (!w) { alert("Please allow pop-ups to download your resume."); return; }
+  w.document.write(html);
+  w.document.close();
+  // Wait for fonts/styles to load, then trigger print
+  w.onload = function() { w.print(); };
+  // Fallback if onload doesn't fire
+  setTimeout(function() { w.print(); }, 1000);
 }
 
-// Keep compilePDF as alias for the old button
-async function compilePDF() { return downloadPDF(); }
+function compilePDF() { return downloadPDF(); }
 
 function toggleLatex() {
   const el = $("latex-preview");

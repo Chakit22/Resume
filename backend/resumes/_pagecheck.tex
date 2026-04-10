@@ -8,9 +8,10 @@
 \usepackage{paracol}
 % hyperref loaded by altacv.cls
 
-\definecolor{Navy}{HTML}{000080}
-\definecolor{SlateGrey}{HTML}{2E2E2E}
-\definecolor{LightGrey}{HTML}{666666}
+% rgb (not HTML hex): Tectonic's xcolor often rejects {HTML}{...} and halts compile
+\definecolor{Navy}{rgb}{0,0,0.50196}
+\definecolor{SlateGrey}{rgb}{0.18039,0.18039,0.18039}
+\definecolor{LightGrey}{rgb}{0.4,0.4,0.4}
 \colorlet{heading}{Navy}
 \colorlet{accent}{Navy}
 \colorlet{emphasis}{SlateGrey}
@@ -22,7 +23,7 @@
 \begin{document}
 
 \name{Chakit Bhandari}
-\tagline{AI Full Stack Developer}
+\tagline{Software Engineer}
 \personalinfo{%
   \location{Melbourne, VIC}
   \email{chakitbhandari22@gmail.com}
@@ -33,7 +34,7 @@
 \makecvheader
 \end{fullwidth}
 
-\columnratio{0.65}
+\columnratio{0.55}
 \begin{paracol}{2}
 
 % LEFT COLUMN
@@ -41,33 +42,33 @@
 
 \cvevent{AI Engineer}{Heya Voice AI}{Aug 2025 - Present}{Melbourne, VIC}
 \begin{itemize}
-\item Orchestrated \textbf{LLM} workflows for AI voice automation, reducing manual calls by 80\%.
-\item Developed CLI tool for streamlined deployment and configuration of voice agents.
-\item Engineered n8n workflows for \textbf{end-to-end solution ownership}.
+\item Built AI voice systems using LLM orchestration, reducing calls by \textbf{80\%}.
+\item Developed n8n workflows for end-to-end automation.
+\item Created CLI tool to streamline voice agent deployment.
 \end{itemize}
 \divider
 
 \cvevent{Software Developer Intern}{Digital Asset Custody Solutions Pty Ltd.}{Jul 2025 - Oct 2025}{Melbourne, VIC}
 \begin{itemize}
-\item Designed \textbf{end-to-end architecture} for crypto pricing engine on \textbf{AWS}.
-\item Integrated 5+ external data providers for real-time pricing.
-\item Developed serverless pipelines, reducing infra overhead by 45\%.
+\item Designed crypto pricing engine on \textbf{AWS} for \textbf{20+} digital assets.
+\item Developed serverless pipelines using API Gateway, \textbf{AWS} Lambda, RDS.
+\item Integrated \textbf{5+} external market data providers for pricing.
 \end{itemize}
 \divider
 
 \cvevent{Software Engineer}{Film Never Die}{Nov 2024 - Feb 2025}{Melbourne, VIC}
 \begin{itemize}
-\item Contributed to \textbf{SaaS} product, enabling clients to save \$30,000 annually.
-\item Developed Flutter app for fast image access, replacing cloud storage.
-\item Optimized image delivery using CloudFront CDN for 5-50MB files.
+\item Developed Flutter app for fast image access.
+\item Hosted images on CloudFront CDN for efficient delivery.
+\item Worked on SaaS product helping clients save up to \$30,000.
 \end{itemize}
 \divider
 
 \cvevent{Software Developer}{Fresh Prints}{Jun 2023 -- Aug 2023}{Remote}
 \begin{itemize}
+\item Built PDF image extraction API on \textbf{AWS} Lambda, reducing costs by \textbf{96\%}.
+\item Containerized services using \textbf{Docker} to improve \textbf{scalability}.
 \item Developed Customer Portal features for direct client ordering.
-\item Built PDF image extraction API, migrated to AWS Lambda, cut costs by 96\%.
-\item Containerized services with \textbf{Docker} for scalability and \textbf{remote-first} approach.
 \end{itemize}
 
 \switchcolumn
@@ -86,10 +87,13 @@
 \cvtag{Node.js}
 \cvtag{React}
 \cvtag{AWS}
+\cvtag{LangGraph}
 \cvtag{LLMs}
+\cvtag{AI Agents}
 \cvtag{Docker}
-\cvtag{Flutter}
+\cvtag{FastAPI}
 \cvtag{Python}
+\cvtag{Next.js}
 
 \vspace{0.1cm}
 
@@ -101,31 +105,29 @@
 
 \vspace{0.1cm}
 
-\cvsection{Achievements}
-
-\begin{itemize}
-\item Secured 1st place in AI Agents Beginner Hackathon at Microsoft.
-\item Achieved 3rd rank out of 200 in University algorithmic event.
-\end{itemize}
-
-\vspace{0.1cm}
-
-\cvsection{Coding Profiles}
-
-\begin{itemize}
-\item Solved 1000+ problems on coding platforms.
-\item Knight on Leetcode (Max Rating: 1944), 3 star on Codechef.
-\end{itemize}
-
-\vspace{0.1cm}
-
 \cvsection{Projects}
+
+\cvevent{Medico-Legal RAG System}{\href{https://github.com/Chakit22}{GitHub}}{}{Personal Project}
+\begin{itemize}
+\item Built RAG pipeline using \textbf{LangGraph}, \textbf{LangChain}, \textbf{FastAPI}.
+\item Implemented query router classifying questions.
+\item Achieved \textbf{75\%} reduction in irrelevant data retrieval.
+\end{itemize}
+\divider
 
 \cvevent{Forge -- AI Learning Assistant}{\href{https://github.com/Chakit22}{GitHub}}{}{Team Project}
 \begin{itemize}
-\item Developed AI assistant with summaries, quizzes, and speech-to-text.
-\item Integrated \textbf{LLMs} (OpenAI GPT-4o), Weaviate, and Whisper.
-\item Tech Stack: Next.js, GPT-4o, Weaviate, Whisper, Vercel
+\item Built AI tool with summaries, quizzes, mindmaps, speech-to-text.
+\item Integrated OpenAI GPT-4o, Weaviate, and Whisper.
+\item Tech Stack: Next.js, GPT-4o, Weaviate, Whisper.
+\end{itemize}
+\divider
+
+\cvevent{Atlas (AI Travel Planner)}{\href{https://github.com/Chakit22/Travel-Planner}{GitHub}}{}{Personal Project}
+\begin{itemize}
+\item Built multi-agent travel assistant with \textbf{LangGraph} and \textbf{Gemini 2.5 Flash}.
+\item Integrated \textbf{SerpApi}, \textbf{Serper.dev}, \textbf{OpenWeatherMap}.
+\item Shipped streaming \textbf{TypeScript CLI} with disk-backed session persistence.
 \end{itemize}
 
 \end{paracol}
